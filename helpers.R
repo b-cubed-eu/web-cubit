@@ -45,20 +45,66 @@ floppydisk2cube <- function(data_in, target_grid, specieskey, grid_crs){
 # 
 # occ_agg <- floppydisk2cube(data_filt, target_grid, specieskey, grid_crs)
 # 
-# filter_missing_coords <- function(data){
-#   
-#   # i_lat <- grep('decimalLatitude', names(data))
-#   # i_long <- grep('decimalLongitude', names(data))
-#   # 
-#   # if (i_lat + 1 != i_long){
-#   #   stop("Longitude column must be immediately after Latitude")
-#   # }
-#   
-#   data_filt <- data[complete.cases(data[ , c('decimalLatitude','decimalLongitude')]),]
-#   
-#   return(data_filt)
-#   
-# }
+filter_missing_coords <- function(data){
+
+  i_lat <- grep('decimalLatitude', names(data))
+  i_long <- grep('decimalLongitude', names(data))
+
+  if (i_lat + 1 != i_long){
+    stop("Longitude column must be immediately after Latitude")
+  }
+
+  data_filt <- data[complete.cases(data[ , c('decimalLatitude','decimalLongitude')]),]
+
+  return(data_filt)
+
+}
+
+'%nin%' <- Negate("%in%")
+
+Cubit_error_message <- 'Please select a dataset containing the following information: countryCode, scientificName, decimalLatitude, decimalLongitude, year.'
+
+
+check_req_fields <- function(data){
+  #check for countryCode, scientificName, decimalLatitude, decimalLongitude, year
+  
+  req_fields= c('countryCode', 'scientificName', 'decimalLatitude', 'decimalLongitude', 'year')
+  
+  for (f in req_fields) {
+    if (f %nin% names(data)){
+      return(paste('countryCode column not found. ', Cubit_error_message, ""))
+    }
+  }
+  
+
+  #must be before missing coords
+}
+
+get_corresponding_preset_grid <- function(km){
+  if (km=="10km"){
+    grid_file = "eea_grid/Grid_ETRS89-LAEA_10K.shp"
+  } else if (km=="100km"){
+    grid_file = "eea_grid/Grid_ETRS89-LAEA_100K.shp"
+  } else if (km=="1km"){
+    grid_file = "eea_grid/Grid_ETRS89-LAEA_1K.shp"
+  } 
+  
+  return(grid_file)
+}
+
+#get_datapath_grid <- function()
+
 # 
 # data_filt2 <- filter_missing_coords(data_in)
 # occ_agg2 <- floppydisk2cube(data_filt2, target_grid, specieskey, grid_crs)
+
+# library(terra)
+# # List all binary files
+# files <- list.files(include.dirs=T, recursive = T, pattern="*Grid_ETRS89-LAEA_100K*")
+# # Read and stack them
+# stacked_raster <- rast(files)
+# # Merge/mosaic them into one (if spatial coverage varies)
+# # Or use sum() / max() to combine binary 0/1 layers
+# final_raster <- sum(stacked_raster, na.rm = TRUE)
+# # Save as one file
+# writeRaster(final_raster, "merged_grid.tif")

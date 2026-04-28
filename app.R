@@ -11,7 +11,11 @@ source("helpers.R")
 
 # User interface ----
 ui <- page_sidebar(
-  title = "FloppyDisk2Cube",
+  titlePanel(title= "Cubit",
+             tags$div(
+               tags$img(src = "Cubit-logo.png", height = "40px", style = "margin-right:10px;"),
+             )
+  ),
   
   # Sidebar panel for inputs ----
   sidebar = sidebar(
@@ -26,6 +30,25 @@ ui <- page_sidebar(
         "text/comma-separated-values,text/plain",
         ".csv"
       )
+    ),
+    
+    selectInput("grid_source", "Choose grid:",
+                choices = c("Use built-in grid" = "preset",
+                            "Upload your own" = "custom")),
+    
+    # Show preset dropdown only if "preset" selected
+    conditionalPanel(
+      condition = "input.grid_source == 'preset'",
+      selectInput("preset_choice", "Select a preset grid:",
+                  choices = c("Grid 100km" = "100km",
+                              "Grid 10km" = "10km", 
+                              "Grid 1km" = "1km"))
+    ),
+    
+    # Show file upload only if "custom" selected
+    conditionalPanel(
+      condition = "input.grid_source == 'custom'",
+      fileInput("file_grid", "Upload your file:")
     ),
     
     # Horizontal line ----
@@ -91,6 +114,7 @@ server <- function(input, output) {
   retrieve_file <- reactive({
     req(input$file1)
     
+    
     df <- read.csv(
       input$file1$datapath,
       header = input$header,
@@ -100,13 +124,20 @@ server <- function(input, output) {
     return(df)
   })
   
+  get_target_grid <- reactive({
+    
+  })
   
   output$contents <- renderTable({
     # input$file1 will be NULL initially. After the user selects
     # and uploads a file, head of that data file by default,
     # or all rows if selected, will be shown.
     
-    req(input$file1)
+    
+    validate(
+      need(input$file1 != "", "Please select a data set")
+    )
+    
     
    if (input$disp == "head") {
       return(head(retrieve_file()))
@@ -116,8 +147,20 @@ server <- function(input, output) {
   })
   
   data_into_cube <- reactive({
-    # load grid (e.g. EEA grid 10 km)
-    target_grid <- st_read("eea_grid/Grid_ETRS89-LAEA_10K.shp")
+    req(retrieve_file())
+    
+    
+    if (input$grid_source=='preset'){
+      # load grid (e.g. EEA grid 10 km)
+      
+      target_grid <- st_read(get_corresponding_preset_grid(input$preset_choice)) #get_corresponding_preset_grid(input$preset_choice)
+    } 
+    
+    if (input$grid_source == 'custom') {
+      req(input$file_grid)
+      target_grid <- st_read(input$file_grid$datapath)
+    }
+      
     # assign GBIF species key for your specie e.g., Cakile maritima
     specieskey <- "3048831" # automate specieskey extraction from GBIF
     # define data layer projection
@@ -131,14 +174,31 @@ server <- function(input, output) {
   
   output$processed <- renderTable({
     
-    return(data_into_cube())
+    validate(
+      need(input$file1 != "", Cubit_error_message)
+    )
+    
+    validate(
+      check_req_fields(retrieve_file())
+    )
+    
+    output_cube <- data_into_cube()
+    
+    
+    
+    
+    return(output_cube)
     
   })
+  
+  
   
   # Downloadable csv of selected dataset ----
   output$downloadData <- downloadHandler(
     filename="processed_data.csv",
     content = function(file) {
+      req(input$file1)
+      req(data_into_cube())
       write.csv(data_into_cube(), file, row.names = FALSE, quote=F)
     }
   )
