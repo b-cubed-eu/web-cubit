@@ -6,7 +6,8 @@ library(sf)
 library(dplyr)
 library(terra)
 
-setwd('C:/Users/Rui/Documents/b3/Cubit')
+#setwd('C:/Users/Rui/Documents/b3/Cubit')
+#setwd("/srv/shiny-server/Cubit")
 source("helpers.R")
 
 # User interface ----
@@ -48,7 +49,7 @@ ui <- page_sidebar(
     # Show file upload only if "custom" selected
     conditionalPanel(
       condition = "input.grid_source == 'custom'",
-      fileInput("file_grid", "Upload your file:")
+      fileInput("file_grid", "Upload your file:", accept = ".gpkg")
     ),
     
     # Horizontal line ----
@@ -104,6 +105,21 @@ ui <- page_sidebar(
     nav_panel("Input data", tableOutput(outputId = "contents")),
     # Show data table
     nav_panel("Cube data", tableOutput(outputId = "processed"), downloadButton("downloadData", "Download")), 
+    # Merge with another cube
+    nav_panel("Merge Cubes",
+              fileInput(
+                "new_cube",
+                "Choose CSV File",
+                multiple = TRUE,
+                accept = c(
+                  "text/csv",
+                  "text/comma-separated-values,text/plain",
+                  ".csv"
+                )
+              ),
+              tableOutput(outputId = "merged"), 
+              downloadButton("downloadMerged", "Download"))
+  
     # Show temporal decay plot (to be implemented)
     #nav_panel("Temporal Degradation", )
   )
@@ -162,11 +178,11 @@ server <- function(input, output) {
     }
       
     # assign GBIF species key for your specie e.g., Cakile maritima
-    specieskey <- "3048831" # automate specieskey extraction from GBIF
+    #specieskey <- "3048831" # automate specieskey extraction from GBIF
     # define data layer projection
     grid_crs <- st_crs(4326) 
     
-    floppydatacube <- floppydisk2cube(retrieve_file(), target_grid, specieskey, grid_crs)
+    floppydatacube <- floppydisk2cube(retrieve_file(), target_grid, grid_crs)
     data_cube <<- floppydatacube
     
     return(floppydatacube)
@@ -191,6 +207,30 @@ server <- function(input, output) {
     
   })
   
+  retrieve_new_cube_file <- reactive({
+    req(input$new_cube)
+    
+    print('pleasework')
+    df <- read.csv(
+      input$new_cube$datapath,
+      header = T,
+      sep = ","
+    )
+    return(df)
+  })
+  
+  output$merged <- renderTable({
+    
+     # validate(
+     #   need(input$new_cube != "", "Please upload a new cube to merge with the one you just created!")
+     # ),
+    #merged_cube <- retrieve_new_cube_file()
+    merged_cube <- merge_cubes(retrieve_new_cube_file(), data_into_cube())
+    
+    return(merged_cube)
+  } 
+  )
+  
   
   
   # Downloadable csv of selected dataset ----
@@ -200,6 +240,15 @@ server <- function(input, output) {
       req(input$file1)
       req(data_into_cube())
       write.csv(data_into_cube(), file, row.names = FALSE, quote=F)
+    }
+  )
+  
+  output$downloadMerged <- downloadHandler(
+    filename="merged_data.csv",
+    content = function(file) {
+      req(input$new_cube)
+      req(retrieve_new_cube_file())
+      write.csv(merge_cubes(retrieve_new_cube_file(), data_into_cube()), file, row.names = FALSE, quote=F)
     }
   )
 }
