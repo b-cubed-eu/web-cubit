@@ -1,5 +1,5 @@
 #Function to coonvert a list of species occurrences with coordinates to a data cube
-floppydisk2cube <- function(data_in, target_grid, grid_crs){
+floppydisk2cube <- function(data_in, aggregate_columns, uncertainty_columns=c('coordinateUncertaintyInMeters'), target_grid, grid_crs){
   
   # convert data to a vector layer
   occ <- st_as_sf(data_in, coords = c("decimalLongitude", "decimalLatitude"), crs = grid_crs)
@@ -11,46 +11,26 @@ floppydisk2cube <- function(data_in, target_grid, grid_crs){
   occ_eea <- st_intersection(occ_proj, target_grid)
   
   occ_dat <- as.data.frame(occ_eea)
+
+  # create eeacellcode column in data frame
+  names(occ_dat)[grep('CellCode', names(occ_dat))] <- 'eeacellcode'
+
+  # aggregate occurrences and keep min of uncertainty column 
   
-  # create data frame with the following fields
-  colnames_in <- c("eeacellcode", "specieskey", "species", "countrycode", "year")
-  occ_df <- setNames(data.frame(matrix(ncol = length(colnames_in), nrow = nrow(occ_dat))), colnames_in)
+  occ_agg <- as.data.frame(occ_dat %>% group_by(across(aggregate_columns)) %>%
+                                       summarise(across(uncertainty_columns, min) ) %>%
+                                       add_count()
+                           )
   
-  # fill-in data frame
-  occ_df$eeacellcode <- occ_dat$CellCode
-  occ_df$specieskey <- occ_dat$specieskey
-  occ_df$countrycode <- occ_dat$countryCode
-  occ_df$year <- occ_dat$year
-  
-  
-  # aggregate occurrences
-  occ_agg <- as.data.frame(occ_df %>% group_by(eeacellcode, specieskey, countrycode, year) %>% 
-                             summarise(total_count=n(),
-                                       .groups = 'drop'))
   #occ_agg    
-  colnames(occ_agg)[which(colnames(occ_agg) == 'total_count')] <- 'count'
+  colnames(occ_agg)[which(colnames(occ_agg) == 'n')] <- 'count'
   
   return(occ_agg)
 }
-# 
-# data_in <- read.csv('b3/Cakile_maritima.csv', header=T, sep='\t', fill=T)
-# # # load grid (e.g. EEA grid 10 km)
-# target_grid <- st_read('b3/hackathon-projects-2024/projects/10/input/eea_grid/Grid_ETRS89-LAEA_10K.shp')
-# # # assign GBIF species key for your specie e.g., Cakile maritima
-# specieskey <- '3048831' #"2426805" # automate specieskey extraction from GBIF
-# # # define data layer projection
-# grid_crs <- st_crs(4326)
-# 
-# check_req_fields(data_in)
-# data_in <- filter_missing_coords(data_in)
-# 
-# grep('Latitude', names(data_in))
-# grep('Longitude', names(data_in))
-# 
-# occ_agg <- floppydisk2cube(data_filt, target_grid, specieskey, grid_crs)
-# 
-filter_missing_coords <- function(data){
 
+
+filter_missing_coords <- function(data){
+  #might change to user-defined columns of coordinates
   i_lat <- grep('decimalLatitude', names(data))
   i_long <- grep('decimalLongitude', names(data))
 
@@ -72,7 +52,7 @@ Cubit_error_message <- 'Please select a dataset containing the following informa
 check_req_fields <- function(data){
   #check for countryCode, scientificName, decimalLatitude, decimalLongitude, year
   
-  req_fields= c('countryCode', 'scientificName', 'decimalLatitude', 'decimalLongitude', 'year', 'specieskey')
+  req_fields= c('countryCode', 'scientificName', 'decimalLatitude', 'decimalLongitude', 'year', 'speciesKey')
   
   for (f in req_fields) {
     if (f %nin% names(data)){
@@ -84,16 +64,24 @@ check_req_fields <- function(data){
   #must be before missing coords
 }
 
+#load preset grids
+grid_10km <- st_read("eea_grid/Grid_ETRS89-LAEA_10K.shp")
+grid_100km <- st_read("eea_grid/Grid_ETRS89-LAEA_100K.shp")
+
+
 get_corresponding_preset_grid <- function(km){
   if (km=="10km"){
-    grid_file = "eea_grid/Grid_ETRS89-LAEA_10K.shp"
+    #grid_file = "eea_grid/Grid_ETRS89-LAEA_10K.shp"
+    return(grid_10km)
   } else if (km=="100km"){
-    grid_file = "eea_grid/Grid_ETRS89-LAEA_100K.shp"
+    return(grid_100km)
+    #grid_file = "eea_grid/Grid_ETRS89-LAEA_100K.shp"
   } else if (km=="1km"){
-    grid_file = "eea_grid/Grid_ETRS89-LAEA_1K.shp"
+    #not implemented right now because it takes ages to load
+    return(grid_1km)
+    #grid_file = "eea_grid/Grid_ETRS89-LAEA_1K.shp"
   } 
   
-  return(grid_file)
 }
 
 merge_cubes <- function(new_cube, processed_cube){
@@ -119,18 +107,18 @@ merge_cubes <- function(new_cube, processed_cube){
   
 }
 
+assess_uncertainty <- function(data, coord_uncertainty_col='coordinateUncertaintyInMeters', default_na=1000){
+  if (coord_uncertainty_col %in% names(data)){
+    
+    data <- data %>% mutate(coordinateUncertaintyInMeters = ifelse(is.na(coordinateUncertaintyInMeters), default_na, coordinateUncertaintyInMeters))
+    
+  } else {
+    data$coordinateUncertaintyInMeters <- default_na
+  }
+  
+  return(data)
+}
 
-# 
-# data_filt2 <- filter_missing_coords(data_in)
-# occ_agg2 <- floppydisk2cube(data_filt2, target_grid, specieskey, grid_crs)
 
-# library(terra)
-# # List all binary files
-# files <- list.files(include.dirs=T, recursive = T, pattern="*Grid_ETRS89-LAEA_100K*")
-# # Read and stack them
-# stacked_raster <- rast(files)
-# # Merge/mosaic them into one (if spatial coverage varies)
-# # Or use sum() / max() to combine binary 0/1 layers
-# final_raster <- sum(stacked_raster, na.rm = TRUE)
-# # Save as one file
-# writeRaster(final_raster, "merged_grid.tif")
+
+#need to add a way to download metadata on the generation of the cube (see deliverable 2.1 - section 3.4)
