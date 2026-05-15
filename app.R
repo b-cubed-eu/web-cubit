@@ -6,19 +6,19 @@ library(sf)
 library(dplyr)
 library(terra)
 
-source("helpers.R")
+source("utils.R")
 
 # User interface ----
 ui <- page_sidebar(
-  titlePanel(title= "Cubit"
-             #tags$div(
-            #   tags$img(src = "Cubit-logo.png", height = "40px", style = "margin-right:10px;"),
-             #)
+  titlePanel(
+    title = "Cubit"
+    # tags$div(
+    #   tags$img(src = "Cubit-logo.png", height = "40px", style = "margin-right:10px;"),
+    # )
   ),
-  
+
   # Sidebar panel for inputs ----
   sidebar = sidebar(
-    
     # Input: Select a file ----
     fileInput(
       "file1",
@@ -30,33 +30,38 @@ ui <- page_sidebar(
         ".csv"
       )
     ),
-    
     selectInput("grid_source", "Choose grid:",
-                choices = c("Use built-in grid" = "preset",
-                            "Upload your own" = "custom")),
-    
+      choices = c(
+        "Use built-in grid" = "preset",
+        "Upload your own" = "custom"
+      )
+    ),
+
     # Show preset dropdown only if "preset" selected
     conditionalPanel(
       condition = "input.grid_source == 'preset'",
       selectInput("preset_choice", "Select a preset grid:",
-                  choices = c("Grid 100km" = "100km",
-                              "Grid 10km" = "10km", 
-                              "Grid 1km" = "1km"))
+        choices = c(
+          "Grid 100km" = "100km",
+          "Grid 10km" = "10km",
+          "Grid 1km" = "1km"
+        )
+      )
     ),
-    
+
     # Show file upload only if "custom" selected
     conditionalPanel(
       condition = "input.grid_source == 'custom'",
       fileInput("file_grid", "Upload your file:", accept = ".gpkg")
     ),
-    
-    
+
+
     # Horizontal line ----
     tags$hr(),
-    
+
     # Input: Checkbox if file has header ----
     checkboxInput("header", "Header", TRUE),
-    
+
     # Input: Select separator ----
     radioButtons(
       "sep",
@@ -68,7 +73,7 @@ ui <- page_sidebar(
       ),
       selected = ","
     ),
-    
+
     # Input: Select quotes ----
     radioButtons(
       "quote",
@@ -80,10 +85,10 @@ ui <- page_sidebar(
       ),
       selected = '"'
     ),
-    
+
     # Horizontal line ----
     tags$hr(),
-    
+
     # Input: Select number of rows to display ----
     radioButtons(
       "disp",
@@ -95,52 +100,53 @@ ui <- page_sidebar(
       selected = "head"
     )
   ),
-  
-  
-  
+
+
   # Output: Data file ----
   navset_card_underline(
     # Show scatterplot
     nav_panel("Input data", tableOutput(outputId = "contents")),
     # Show data table
-    nav_panel("Cube data", 
-              
-              uiOutput("cube_config_ui"),
-              
-              
-              conditionalPanel(
-                #JavaScript expression to evaluate whether the configuration of the cube is finished
-              condition = "output.config_done == true",
-                #return created cube based on the config once it's done
-              tableOutput(outputId = "processed"), 
-              downloadButton("downloadData", "Download"))
-              ), 
+    nav_panel(
+      "Cube data",
+      uiOutput("cube_config_ui"),
+      conditionalPanel(
+        # JavaScript expression to evaluate whether the configuration of the cube is finished
+        condition = "output.config_done == true",
+        # return created cube based on the config once it's done
+        tableOutput(outputId = "processed"),
+        downloadButton("downloadData", "Download") ,
+        
+        
+      )
+    ),
     # Merge with another cube
-    nav_panel("Merge Cubes",
-              fileInput(
-                "new_cube",
-                "Choose CSV File",
-                multiple = TRUE,
-                accept = c(
-                  "text/csv",
-                  "text/comma-separated-values,text/plain",
-                  ".csv"
-                )
-              ),
-              tableOutput(outputId = "merged"), 
-              downloadButton("downloadMerged", "Download"))
-  
+    nav_panel(
+      "Merge Cubes",
+      fileInput(
+        "new_cube",
+        "Choose CSV File",
+        multiple = TRUE,
+        accept = c(
+          "text/csv",
+          "text/comma-separated-values,text/plain",
+          ".csv"
+        )
+      ),
+      tableOutput(outputId = "merged"),
+      downloadButton("downloadMerged", "Download")
+    )
+
     # Show temporal decay plot (to be implemented)
-    #nav_panel("Temporal Degradation", )
+    # nav_panel("Temporal Degradation", )
   )
 )
 
 server <- function(input, output) {
-  
-  #set max size of upload to 30MB
-  options(shiny.maxRequestSize=30*1024^2) 
-  
-  #read uploaded file
+  # set max size of upload to 30MB
+  options(shiny.maxRequestSize = 30 * 1024^2)
+
+  # read uploaded file
   retrieve_file <- reactive({
     req(input$file1)
 
@@ -151,10 +157,10 @@ server <- function(input, output) {
       sep = input$sep,
       quote = input$quote
     )
-    
-    #every occurrences must have corresponding coordinates
+
+    # every occurrences must have corresponding coordinates
     df_filt <- filter_missing_coords(df)
-    
+
     return(df_filt)
   })
 
@@ -169,7 +175,7 @@ server <- function(input, output) {
     )
 
 
-   if (input$disp == "head") {
+    if (input$disp == "head") {
       return(head(retrieve_file()))
     } else {
       return(retrieve_file())
@@ -180,71 +186,67 @@ server <- function(input, output) {
     req(retrieve_file())
 
 
-    if (input$grid_source=='preset'){
+    if (input$grid_source == "preset") {
       # load pre-built grid (e.g. EEA grid 10 km)
       target_grid <- get_corresponding_preset_grid(input$preset_choice)
-
     }
 
-    if (input$grid_source == 'custom') {
+    if (input$grid_source == "custom") {
       req(input$file_grid)
       target_grid <- st_read(input$file_grid$datapath)
     }
-    
+
     # Set the seed for reproducibility
     # if (input$seed) {
     #   set.seed(as.integer(input$seed) )
     # }
     #
     # assign GBIF species key for your specie e.g., Cakile maritima
-    #specieskey <- "3048831" # automate specieskey extraction from GBIF
+    # specieskey <- "3048831" # automate specieskey extraction from GBIF
     # define data layer projection
     grid_crs <- st_crs(4326)
 
-    #join user-defined columns for aggregating with the necessary eeacellcode that will be defined from the coordinates
-    aggregate_cols <- c('eeacellcode', input$aggregate_cols)
-    
-    if (isTRUE(input$coordinate_uncertainty_col)){
-      if (isTRUE(input$coordinate_uncertainty_na)){
-        corrected_uncertainty <- assess_uncertainty(retrieve_file(), coord_uncertainty_col=input$coordinate_uncertainty_col, default_na=input$coordinate_uncertainty_na)
+    # join user-defined columns for aggregating with the necessary eeacellcode that will be defined from the coordinates
+    aggregate_cols <- c("eeacellcode", input$aggregate_cols)
+
+    if (isTRUE(input$coordinate_uncertainty_col)) {
+      if (isTRUE(input$coordinate_uncertainty_na)) {
+        corrected_uncertainty <- assess_uncertainty(retrieve_file(), coord_uncertainty_col = input$coordinate_uncertainty_col, default_na = input$coordinate_uncertainty_na)
       } else {
-        corrected_uncertainty <- assess_uncertainty(retrieve_file(), coord_uncertainty_col=input$coordinate_uncertainty_col)
+        corrected_uncertainty <- assess_uncertainty(retrieve_file(), coord_uncertainty_col = input$coordinate_uncertainty_col)
       }
-      #if the user didn't choose anything use defaults
+      # if the user didn't choose anything use defaults
     } else {
       corrected_uncertainty <- assess_uncertainty(retrieve_file())
     }
-    
-    #main function for cubing data
-    floppydatacube <- floppydisk2cube(data_in = corrected_uncertainty, aggregate_columns = aggregate_cols, target_grid=target_grid, grid_crs=grid_crs)
+
+    # main function for cubing data
+    floppydatacube <- floppydisk2cube(data_in = corrected_uncertainty, aggregate_columns = aggregate_cols, target_grid = target_grid, grid_crs = grid_crs)
     data_cube <<- floppydatacube
 
     return(floppydatacube)
   })
-  
+
   config_done <- reactiveVal(FALSE)
-  
-  #create panel for cube configuration based on data in uploaded file
+
+  # create panel for cube configuration based on data in uploaded file
   output$cube_config_ui <- renderUI({
-    
     req(retrieve_file())
-    
+
     if (config_done()) {
       return(NULL)
     }
-    
-    #get columns from uploaded ful
+
+    # get columns from uploaded ful
     cols <- names(retrieve_file())
-    
+
     tagList(
-      
       selectInput(
         "aggregate_cols",
         "Columns to aggregate on",
         choices = cols,
         multiple = TRUE
       ),
-      
       selectInput(
         "coordinate_uncertainty_col",
         "Coordinate uncertainty column",
@@ -256,39 +258,35 @@ server <- function(input, output) {
           value = TRUE
         )[1]
       ),
-      
       numericInput(
         "coordinate_uncertainty_na",
         "Replacement value for missing coordinate uncertainty (meters)",
         value = 1000,
         min = 0
       ),
-      
       actionButton(
         "apply_cube_config",
         "Create cube"
       )
     )
   })
-  
-  #check if necessay options have been set
+
+  # check if necessay options have been set
   observeEvent(input$apply_cube_config, {
-    
     req(input$aggregate_cols)
-    
-    
+
+
     config_done(TRUE)
   })
-  
+
   output$config_done <- reactive({
     config_done()
   })
-  
-  #controls whether a reactive output continues updating when it is hidden in the UI.
+
+  # controls whether a reactive output continues updating when it is hidden in the UI.
   outputOptions(output, "config_done", suspendWhenHidden = FALSE)
 
   output$processed <- renderTable({
-
     validate(
       need(input$file1 != "", Cubit_error_message)
     )
@@ -300,10 +298,7 @@ server <- function(input, output) {
     output_cube <- data_into_cube()
 
 
-
-
     return(output_cube)
-
   })
 
   retrieve_new_cube_file <- reactive({
@@ -317,37 +312,36 @@ server <- function(input, output) {
     )
     return(df)
   })
-
+ 
+  
+  
   output$merged <- renderTable({
+    validate(
+      need(input$new_cube != "", "Please upload a new cube to merge with the one you just created!")
+    )
 
-      validate(
-        need(input$new_cube != "", "Please upload a new cube to merge with the one you just created!")
-      )
-    
     merged_cube <- merge_cubes(retrieve_new_cube_file(), data_into_cube())
 
     return(merged_cube)
-  }
-  )
-
+  })
 
 
   # Downloadable csv of selected dataset ----
   output$downloadData <- downloadHandler(
-    filename="processed_data.csv",
+    filename = "processed_data.csv",
     content = function(file) {
       req(input$file1)
       req(data_into_cube())
-      write.csv(data_into_cube(), file, row.names = FALSE, quote=F)
+      write.csv(data_into_cube(), file, row.names = FALSE, quote = F)
     }
   )
 
   output$downloadMerged <- downloadHandler(
-    filename="merged_data.csv",
+    filename = "merged_data.csv",
     content = function(file) {
       req(input$new_cube)
       req(retrieve_new_cube_file())
-      write.csv(merge_cubes(retrieve_new_cube_file(), data_into_cube()), file, row.names = FALSE, quote=F)
+      write.csv(merge_cubes(retrieve_new_cube_file(), data_into_cube()), file, row.names = FALSE, quote = F)
     }
   )
 }
