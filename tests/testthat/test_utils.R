@@ -132,6 +132,22 @@ test_that("merge_cubes sums counts for overlapping cube rows", {
   expect_equal(merged$count, c(7L, 10L))
 })
 
+test_that("get_uncertainty_time_period correctly provides output integer according to defined rule",{
+  
+  time_periods <- strsplit("2000-2010, 400; 2011-2020, 200; 2021-2026, 50", ';')
+  
+  result1 <- get_uncertainty_time_period(time_periods, 2026, 1000)
+  result2 <- get_uncertainty_time_period(time_periods, 2002, 1000)
+  result3 <- get_uncertainty_time_period(time_periods, 2015, 1000)
+  result4 <- get_uncertainty_time_period(time_periods, 1998, 1000)
+  
+  expect_true(class(result1)== 'integer')
+  expect_equal(result1, 50)
+  expect_equal(result2, 400)
+  expect_equal(result3, 200)
+  expect_equal(result4, 1000)
+})
+
 
 test_that("floppydisk2cube aggregates occurrences into target grid cells", {
   

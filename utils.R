@@ -24,10 +24,11 @@ floppydisk2cube <- function(data_in,
 
   # aggregate occurrences and keep min of uncertainty column
 
-  occ_agg <- as.data.frame(occ_dat %>% group_by(across(all_of(c('species', 'eeacellcode')))) %>%
+  occ_agg <- as.data.frame(occ_dat %>% group_by(across(all_of(aggregate_columns))) %>%
                                   summarise(across('coordinateUncertaintyInMeters', min), count=n(), .groups="drop")
                             )
-
+  occ_agg$coordinateUncertaintyInMeters <- as.integer(occ_agg$coordinateUncertaintyInMeters)
+  
   # occ_agg
   colnames(occ_agg)[which(colnames(occ_agg) == "n")] <- "count"
 
@@ -112,14 +113,46 @@ merge_cubes <- function(new_cube, processed_cube) {
   return(merged_cube)
 }
 
-assess_uncertainty <- function(data, coord_uncertainty_col = "coordinateUncertaintyInMeters", default_na = 1000) {
-  if (coord_uncertainty_col %in% names(data)) {
-    data <- data %>% mutate(coordinateUncertaintyInMeters = ifelse(is.na(coordinateUncertaintyInMeters), 
-                                                                   default_na, coordinateUncertaintyInMeters))
-  } else {
-    data$coordinateUncertaintyInMeters <- default_na
+get_uncertainty_time_period <- function(time_periods, value, default_na){
+  
+  for (period in time_periods[[1]]){
+    
+    years <- str_trim(strsplit(period, ',')[[1]][1])
+    year_min <- as.integer(str_trim(strsplit(years, '-')[[1]][1]))
+    year_max <- as.integer(str_trim(strsplit(years, '-')[[1]][2]))
+    
+    period_default_na <- as.integer(str_trim(strsplit(period, ',')[[1]][2]))
+    
+    if (between(value[1], year_min, year_max)){
+      return(period_default_na)
+    }
+      
   }
+  #if a corresponding time period was not found return the previously established default
+  return(default_na)
+  
+}
 
+assess_uncertainty <- function(data, coord_uncertainty_col = "coordinateUncertaintyInMeters", default_na = 1000, special_rule=NA) {
+  if (is.na(special_rule) ){
+    
+      if (coord_uncertainty_col %in% names(data)) {
+        
+        data <- data %>% mutate(coordinateUncertaintyInMeters = ifelse(is.na(coordinateUncertaintyInMeters), 
+                                                                       default_na, coordinateUncertaintyInMeters))
+      } else {
+        data$coordinateUncertaintyInMeters <- default_na
+      }
+    
+  } else {
+    
+    time_periods <- strsplit(special_rule, ';')
+    
+    data <- data %>% mutate(coordinateUncertaintyInMeters2 = ifelse(is.na(coordinateUncertaintyInMeters), 
+                                                                   mapply(function(y) get_uncertainty_time_period(time_periods, y, default_na), year), coordinateUncertaintyInMeters))
+    
+  }
+  
   return(data)
 }
 

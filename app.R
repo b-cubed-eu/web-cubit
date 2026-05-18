@@ -5,11 +5,14 @@ library(bslib)
 library(sf)
 library(dplyr)
 library(terra)
+library(shinyjs)
+library(stringr)
 
 source("utils.R")
 
 # User interface ----
 ui <- page_sidebar(
+  useShinyjs(),
   titlePanel(
     title = "Cubit"
     # tags$div(
@@ -208,18 +211,32 @@ server <- function(input, output) {
 
     # join user-defined columns for aggregating with the necessary eeacellcode that will be defined from the coordinates
     aggregate_cols <- c("eeacellcode", input$aggregate_cols)
+    
+    if (isFALSE(input$use_custom_uncertainty)){
 
-    if (isTRUE(input$coordinate_uncertainty_col)) {
-      if (isTRUE(input$coordinate_uncertainty_na)) {
-        corrected_uncertainty <- assess_uncertainty(retrieve_file(), coord_uncertainty_col = input$coordinate_uncertainty_col, default_na = input$coordinate_uncertainty_na)
+      if (isTRUE(input$coordinate_uncertainty_col)) {
+        if (isTRUE(input$coordinate_uncertainty_na)) {
+          corrected_uncertainty <- assess_uncertainty(retrieve_file(), coord_uncertainty_col = input$coordinate_uncertainty_col, default_na = input$coordinate_uncertainty_na)
+        } else {
+          corrected_uncertainty <- assess_uncertainty(retrieve_file(), coord_uncertainty_col = input$coordinate_uncertainty_col)
+        }
+        # if the user didn't choose anything use defaults
       } else {
-        corrected_uncertainty <- assess_uncertainty(retrieve_file(), coord_uncertainty_col = input$coordinate_uncertainty_col)
+        corrected_uncertainty <- assess_uncertainty(retrieve_file())
       }
-      # if the user didn't choose anything use defaults
     } else {
-      corrected_uncertainty <- assess_uncertainty(retrieve_file())
-    }
-
+      
+      
+        corrected_uncertainty <- assess_uncertainty(retrieve_file(), coord_uncertainty_col = input$coordinate_uncertainty_col, special_rule=input$custom_uncertainty)
+      
+        #I need to check for user input for custom coord uncertainty and if it does not exist return error
+        #print('return error')
+      }
+        
+      
+  
+    
+    
     # main function for cubing data
     floppydatacube <- floppydisk2cube(data_in = corrected_uncertainty, aggregate_columns = aggregate_cols, target_grid = target_grid, grid_crs = grid_crs)
     data_cube <<- floppydatacube
@@ -264,11 +281,34 @@ server <- function(input, output) {
         value = 1000,
         min = 0
       ),
+      checkboxInput(
+        "use_custom_uncertainty",
+        "Specify different uncertainty values for time periods",
+        value = FALSE
+      ),
+      
+      disabled(textInput(
+        "custom_uncertainty",
+        "Custom uncertainty (m): e.g. 2000-2010, 500; 2011-2020, 200; 2021-2026, 50",
+      )),
+        
       actionButton(
         "apply_cube_config",
         "Create cube"
       )
     )
+  })
+  
+  observe({
+    
+    if (isTRUE(input$use_custom_uncertainty)) {
+      
+      shinyjs::enable("custom_uncertainty")
+      
+    } else {
+      
+      shinyjs::disable("custom_uncertainty")
+    }
   })
 
   # check if necessay options have been set
