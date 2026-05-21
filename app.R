@@ -7,6 +7,7 @@ library(dplyr)
 library(terra)
 library(shinyjs)
 library(stringr)
+library(sp)
 
 source("utils.R")
 
@@ -26,10 +27,9 @@ ui <- page_sidebar(
     fileInput(
       "file1",
       "Choose CSV File",
-      multiple = TRUE,
+      multiple = FALSE,
       accept = c(
         "text/csv",
-        "text/comma-separated-values,text/plain",
         ".csv"
       )
     ),
@@ -124,30 +124,57 @@ ui <- page_sidebar(
       )
     ),
     # Merge with another cube
+   # nav_panel(
+      # "Merge Cubes original",
+      # fileInput(
+      #   "new_cube",
+      #   "Choose CSV File",
+      #   multiple = TRUE,
+      #   accept = c(
+      #     "text/csv",
+      #     "text/comma-separated-values,text/plain",
+      #     ".csv"
+      #   )
+      # ),
+      # 
+      # 
+      # 
+      # tableOutput(outputId = "merged"),
+      # 
+      # downloadButton("downloadMerged", "Download")
+    #),
+    
     nav_panel(
       "Merge Cubes",
+      
       fileInput(
         "new_cube",
-        "Choose CSV File",
-        multiple = TRUE,
-        accept = c(
-          "text/csv",
-          "text/comma-separated-values,text/plain",
-          ".csv"
-        )
+        "Choose second cube (CSV)",
+        accept = c(".csv")
       ),
-      tableOutput(outputId = "merged"),
+      
+      tags$hr(),
+      
+      uiOutput("mapping_builder_ui"),
+      
+      actionButton("add_mapping", "➕ Add mapping"),
+      actionButton("run_merge", "Merge cubes"),
+      
+      tags$hr(),
+      
+      tableOutput("merged"),
       downloadButton("downloadMerged", "Download")
     )
 
-    # Show temporal decay plot (to be implemented)
-    # nav_panel("Temporal Degradation", )
+   
   )
 )
 
 server <- function(input, output) {
   # set max size of upload to 30MB
   options(shiny.maxRequestSize = 30 * 1024^2)
+  #display generic error message instead of full error trace
+  #options(shiny.sanitize.errors = TRUE)
 
   # read uploaded file
   retrieve_file <- reactive({
@@ -216,9 +243,12 @@ server <- function(input, output) {
 
       if (isTRUE(input$coordinate_uncertainty_col)) {
         if (isTRUE(input$coordinate_uncertainty_na)) {
-          corrected_uncertainty <- assess_uncertainty(retrieve_file(), coord_uncertainty_col = input$coordinate_uncertainty_col, default_na = input$coordinate_uncertainty_na)
+          corrected_uncertainty <- assess_uncertainty(retrieve_file(),
+                                  coord_uncertainty_col = input$coordinate_uncertainty_col, 
+                                  default_na = input$coordinate_uncertainty_na)
         } else {
-          corrected_uncertainty <- assess_uncertainty(retrieve_file(), coord_uncertainty_col = input$coordinate_uncertainty_col)
+          corrected_uncertainty <- assess_uncertainty(retrieve_file(), 
+                                   coord_uncertainty_col = input$coordinate_uncertainty_col)
         }
         # if the user didn't choose anything use defaults
       } else {
@@ -233,12 +263,13 @@ server <- function(input, output) {
         #print('return error')
       }
         
-      
-  
-    
-    
+   
     # main function for cubing data
-    floppydatacube <- floppydisk2cube(data_in = corrected_uncertainty, aggregate_columns = aggregate_cols, target_grid = target_grid, grid_crs = grid_crs)
+    floppydatacube <- floppydisk2cube(data_in = corrected_uncertainty,
+                                     aggregate_columns = aggregate_cols, 
+                                     target_grid = target_grid,
+                                     grid_crs = grid_crs)
+    #Will this cause issues in the server? Do I really need this to be global?
     data_cube <<- floppydatacube
 
     return(floppydatacube)
@@ -254,7 +285,7 @@ server <- function(input, output) {
       return(NULL)
     }
 
-    # get columns from uploaded ful
+    # get columns from uploaded file
     cols <- names(retrieve_file())
 
     tagList(
@@ -267,13 +298,12 @@ server <- function(input, output) {
       selectInput(
         "coordinate_uncertainty_col",
         "Coordinate uncertainty column",
-        choices = cols,
+        choices =c("None" = "", cols),
         multiple = FALSE,
-        selected = grep(
-          "coordinateUncertainty",
-          cols,
-          value = TRUE
-        )[1]
+        selected = {
+          hit <- grep("coordinateUncertainty", cols, value = TRUE)[1]
+          if (is.na(hit)) NULL else hit
+        }
       ),
       numericInput(
         "coordinate_uncertainty_na",
@@ -352,18 +382,167 @@ server <- function(input, output) {
     )
     return(df)
   })
- 
   
+  mapping_counter <- reactiveVal(0)
+  
+  observeEvent(input$add_mapping, {
+    
+    i <- mapping_counter() + 1
+    mapping_counter(i)
+    
+    cols_a <- names(data_into_cube())
+    cols_b <- names(retrieve_new_cube_file())
+    
+    insertUI(
+      selector = "#mapping_container",
+      where = "beforeEnd",
+      ui = div(
+        id = paste0("map_row_", i),
+        #fluidRow(
+          
+          # column(
+          #   5,
+          #   selectInput(
+          #     paste0("map_a_", i),
+          #     "Cube A column",
+          #     choices = c("-- skip --" = "", cols_a)
+          #   )
+          # ),
+          # 
+          # column(
+          #   5,
+          #   selectInput(
+          #     paste0("map_b_", i),
+          #     "Cube B column",
+          #     choices = c("-- skip --" = "", cols_b)
+          #   )
+          # ),
+          # 
+          # column(
+          #   2,
+          #   actionButton(paste0("remove_", i), "✖")
+          # )
+          
+          
+        #)
+        
+        fluidRow(
+          
+          #row with input fields that will appear after pressing "add mapping" button       
+          column(5,
+                 selectInput(
+                   paste0("map_a_", i),
+                   label = NULL,
+                   choices = c("-- skip --" = "", cols_a)
+                 )
+          ),
+          
+          column(5,
+                 selectInput(
+                   paste0("map_b_", i),
+                   label = NULL,
+                   choices = c("-- skip --" = "", cols_b)
+                 )
+          ),
+          
+          column(2,
+                 actionButton(paste0("remove_", i), "✖")
+          )
+        )
+      )
+    )
+  })
+  
+  observe({
+    
+    lapply(seq_len(mapping_counter()), function(i) {
+      
+      observeEvent(input[[paste0("remove_", i)]], {
+        
+        removeUI(selector = paste0("#map_row_", i))
+      }, ignoreInit = TRUE)
+    })
+  })
+  
+  output$mapping_builder_ui <- renderUI({
+    
+    tagList(
+      fluidRow(
+        column(5, strong("Cube A")) ,
+        column(5, strong("Cube B")) ,
+        column(2, "")
+      ),
+      div(id = "mapping_container")
+    )
+  })
+  
+  merge_mapping <- reactive({
+    
+    n <- mapping_counter()
+    
+    maps <- lapply(seq_len(n), function(i) {
+      
+      a <- input[[paste0("map_a_", i)]]
+      b <- input[[paste0("map_b_", i)]]
+      
+      if (is.null(a) || a == "" || is.null(b) || b == "") {
+        return(NULL)
+      }
+      
+      data.frame(a = a, b = b)
+    })
+    
+    do.call(rbind, maps)
+  })
+  
+  merged_data <- eventReactive(input$run_merge, {
+    
+    req(data_into_cube(), retrieve_new_cube_file())
+    
+    map <- merge_mapping()
+    
+    validate(
+      need(nrow(map) > 0, "Please define at least one mapping")
+    )
+    
+    by_a <- map$a
+    by_b <- map$b
+    print(map)
+    merge_cubes(
+      data_into_cube(),
+      retrieve_new_cube_file(),
+      by_a,
+      by_b,
+      
+    )
+  })
   
   output$merged <- renderTable({
+
     validate(
-      need(input$new_cube != "", "Please upload a new cube to merge with the one you just created!")
-    )
+       need(input$new_cube != "", "Please upload a new cube to merge with the one you just created!")
+     )
 
-    merged_cube <- merge_cubes(retrieve_new_cube_file(), data_into_cube())
-
-    return(merged_cube)
+    merged_data()
   })
+  
+  output$downloadMerged <- downloadHandler(
+    filename = "merged_cube.csv",
+    content = function(file) {
+      write.csv(merged_data(), file, row.names = FALSE)
+    }
+  )
+
+  
+  # output$merged <- renderTable({
+  #   validate(
+  #     need(input$new_cube != "", "Please upload a new cube to merge with the one you just created!")
+  #   )
+  # 
+  #   merged_cube <- merge_cubes(retrieve_new_cube_file(), data_into_cube())
+  # 
+  #   return(merged_cube)
+  # })
 
 
   # Downloadable csv of selected dataset ----
@@ -376,14 +555,14 @@ server <- function(input, output) {
     }
   )
 
-  output$downloadMerged <- downloadHandler(
-    filename = "merged_data.csv",
-    content = function(file) {
-      req(input$new_cube)
-      req(retrieve_new_cube_file())
-      write.csv(merge_cubes(retrieve_new_cube_file(), data_into_cube()), file, row.names = FALSE, quote = F)
-    }
-  )
+  # output$downloadMerged <- downloadHandler(
+  #   filename = "merged_data.csv",
+  #   content = function(file) {
+  #     req(input$new_cube)
+  #     req(retrieve_new_cube_file())
+  #     write.csv(merge_cubes(retrieve_new_cube_file(), data_into_cube()), file, row.names = FALSE, quote = F)
+  #   }
+  # )
 }
 
 # Create Shiny app ----

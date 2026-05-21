@@ -4,32 +4,30 @@ floppydisk2cube <- function(data_in,
                             uncertainty_columns = c("coordinateUncertaintyInMeters"),
                             target_grid,
                             grid_crs) {
+  
+  #new coordinates will be created based on randomization found in Oldoni et al.2020
+  data_2 <- assign_occurrence_within_uncertainty_circle(data_in)
   # convert data to a vector layer
-  occ <- st_as_sf(data_in, coords = c("decimalLongitude", "decimalLatitude"), crs = grid_crs)
+  occ <- st_as_sf(data_2, coords = c("x", "y"), crs = grid_crs)
 
   # project vector layer to EEA grid, in this example EPGS:3035
   occ_proj <- st_transform(occ, crs(target_grid))
-  
-  #create buffer based on coordinate uncertainty - randomized grid allocation
-  #occ_proj <- occ_proj %>% st_buffer(., .$coordinateUncertaintyInMeters) 
-  #right now it creates problems with the coord uncertainty in the cube
 
   # intersect spatial occurrences with target grid
   occ_eea <- st_intersection(occ_proj, target_grid)
 
   occ_dat <- as.data.frame(occ_eea)
-
+  
   # create eeacellcode column in data frame
   names(occ_dat)[grep("CellCode", names(occ_dat))] <- "eeacellcode"
 
   # aggregate occurrences and keep min of uncertainty column
 
-  occ_agg <- as.data.frame(occ_dat %>% group_by(across(all_of(aggregate_columns))) %>%
+  occ_agg <- as.data.frame(occ_dat %>% group_by(across(all_of(c(aggregate_columns, "eeacellcode")))) %>%
                                   summarise(across('coordinateUncertaintyInMeters', min), count=n(), .groups="drop")
                             )
   occ_agg$coordinateUncertaintyInMeters <- as.integer(occ_agg$coordinateUncertaintyInMeters)
   
-  # occ_agg
   colnames(occ_agg)[which(colnames(occ_agg) == "n")] <- "count"
 
   return(occ_agg)
@@ -72,7 +70,7 @@ check_req_fields <- function(data) {
 }
 
 # load preset grids
-grid_10km <- st_read("eea_grid/Grid_ETRS89-LAEA_10K.shp")
+#grid_10km <- st_read("eea_grid/Grid_ETRS89-LAEA_10K.shp")
 grid_100km <- st_read("eea_grid/Grid_ETRS89-LAEA_100K.shp")
 
 
@@ -90,7 +88,7 @@ get_corresponding_preset_grid <- function(km) {
   }
 }
 
-merge_cubes <- function(new_cube, processed_cube) {
+merge_cubes <- function(new_cube, processed_cube, map_df) {
   # merge processed with a new cube e.g. downloaded from GBIF
   # which information needs to be kept for each, should the new cube have information on which cube presented the information
   # should it be possible to merge cubes with different temporal resolution (e.g. year vs month)
@@ -98,10 +96,12 @@ merge_cubes <- function(new_cube, processed_cube) {
 
   # need to do a function with required fields in the new cube
   #rows2add <- new_cube %>% select(eeacellcode, specieskey, countrycode, year, count)
-
+  names(new_cube)[match(map_df$b, names(new_cube))] <- map_df$a
+  print(map_df)
+  print(head(new_cube))
   merged_cube <- merge(processed_cube, new_cube, 
-                       by = c("eeacellcode", "specieskey", "countrycode", "year"), 
-                       all.x = T, all.y = T)
+                      by=map_df$a,
+                      all.x = T, all.y = T)
 
   merged_cube <- merged_cube %>% mutate(count = as.integer(rowSums(across(c(count.x, count.y)))))
 
@@ -156,5 +156,38 @@ assess_uncertainty <- function(data, coord_uncertainty_col = "coordinateUncertai
   return(data)
 }
 
+assign_occurrence_within_uncertainty_circle <- function(geodata_df){
+  #gets a random point from within the circle created from the uncertainty values
+  #is necessary for random grid allocation
+
+  coordinates(geodata_df) <- ~decimalLongitude+decimalLatitude
+  proj4string(geodata_df) <- CRS("+init=epsg:4326")
+  geodata_df <- spTransform(geodata_df, CRS("+init=epsg:3035"))
+  colnames(geodata_df@coords) <- c("x", "y")
+  
+  nrow_geodata_df <- nrow(geodata_df)
+  
+  geodata_df@data <-
+    geodata_df@data %>%
+    mutate(random_angle = runif(nrow_geodata_df, 0, 2*pi))
+  geodata_df@data <-
+    geodata_df@data %>%
+    mutate(random_r = sqrt(runif(
+      nrow_geodata_df, 0, 1)) * coordinateUncertaintyInMeters)
+  geodata_df@data <-
+    geodata_df@data %>%
+    mutate(x = geodata_df@coords[, "x"],
+           y = geodata_df@coords[, "y"])
+  geodata_df@data <-
+    geodata_df@data %>%
+    mutate(x = x + random_r * cos(random_angle),
+           y = y + random_r * sin(random_angle))
+  # x` and `y` are the new coordinates while in `@coords` we keep track of the original coordinates:
+  geodata_df@data <-
+    geodata_df@data %>%
+    select(-c(random_angle, random_r))
+  
+  return(geodata_df)
+}
 
 # need to add a way to download metadata on the generation of the cube (see deliverable 2.1 - section 3.4)
