@@ -90,25 +90,19 @@ get_corresponding_preset_grid <- function(km) {
 
 merge_cubes <- function(new_cube, processed_cube, map_df) {
   # merge processed with a new cube e.g. downloaded from GBIF
-  # which information needs to be kept for each, should the new cube have information on which cube presented the information
-  # should it be possible to merge cubes with different temporal resolution (e.g. year vs month)
-  # merge by species, year, grid cell, countryCode
+  #to do: keep min of coordinate uncertainty
 
-  # need to do a function with required fields in the new cube
-  #rows2add <- new_cube %>% select(eeacellcode, specieskey, countrycode, year, count)
   names(new_cube)[match(map_df$b, names(new_cube))] <- map_df$a
-  print(map_df)
-  print(head(new_cube))
+  
   merged_cube <- merge(processed_cube, new_cube, 
                       by=map_df$a,
                       all.x = T, all.y = T)
-
+  
+  #create a new column with the total of both cube's occurrences for each cell
   merged_cube <- merged_cube %>% mutate(count = as.integer(rowSums(across(c(count.x, count.y)))))
 
   # delete unnecessary count columns
-  merged_cube <- merged_cube %>% select(eeacellcode, specieskey, countrycode, year, count)
-
-  print("done")
+  merged_cube <- merged_cube %>% select(c(map_df$a, count))
 
   return(merged_cube)
 }

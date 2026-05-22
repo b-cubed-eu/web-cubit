@@ -505,14 +505,11 @@ server <- function(input, output) {
       need(nrow(map) > 0, "Please define at least one mapping")
     )
     
-    by_a <- map$a
-    by_b <- map$b
-    print(map)
+   
     merge_cubes(
       data_into_cube(),
       retrieve_new_cube_file(),
-      by_a,
-      by_b,
+      map
       
     )
   })

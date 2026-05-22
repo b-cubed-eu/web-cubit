@@ -110,8 +110,8 @@ test_that("assess_uncertainty replaces NA values in existing uncertainty column"
 test_that("merge_cubes sums counts for overlapping cube rows", {
   processed_cube <- data.frame(
     eeacellcode = c("A", "B"),
-    specieskey = c(1, 2),
-    countrycode = c("US", "FR"),
+    speciesKey = c(1, 2),
+    countryCode = c("US", "FR"),
     year = c(2020, 2021),
     count = c(2L, 3L),
     stringsAsFactors = FALSE
@@ -119,14 +119,21 @@ test_that("merge_cubes sums counts for overlapping cube rows", {
 
   new_cube <- data.frame(
     eeacellcode = c("A", "B"),
-    specieskey = c(1, 2),
-    countrycode = c("US", "FR"),
+    speciesKey = c(1, 2),
+    countryCode = c("US", "FR"),
     year = c(2020, 2021),
     count = c(5L, 7L),
     stringsAsFactors = FALSE
   )
+  
+  map_df <- data.frame(
+    a = c("eeacellcode", "speciesKey", "countryCode", "year"),
+    b = c("eeacellcode", "speciesKey", "countryCode", "year"),
+    stringsAsFactors = FALSE
+  )
+  
 
-  merged <- merge_cubes(new_cube, processed_cube)
+  merged <- merge_cubes(new_cube, processed_cube, map_df)
 
   expect_equal(nrow(merged), 2)
   expect_equal(merged$count, c(7L, 10L))
