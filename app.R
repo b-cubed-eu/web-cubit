@@ -257,47 +257,56 @@ server <- function(input, output) {
 
     # get columns from uploaded file
     cols <- names(retrieve_file())
-
-    tagList(
-      selectInput(
-        "aggregate_cols",
-        "Columns to aggregate on",
-        choices = cols,
-        multiple = TRUE
+    
+    fluidRow(
+      column(6, 
+        tagList(
+          selectInput(
+            "aggregate_cols",
+            "Columns to aggregate on",
+            choices = cols,
+            multiple = TRUE
+          ),
+          selectInput(
+            "coordinate_uncertainty_col",
+            "Coordinate uncertainty column",
+            choices =c("None" = "", cols),
+            multiple = FALSE,
+            selected = {
+              hit <- grep("coordinateUncertainty", cols, value = TRUE)[1]
+              if (is.na(hit)) NULL else hit
+            }
+          ),
+          numericInput(
+            "seed",
+            "Establish seed for random grid allocation",
+            value = 42,
+            min = 0
+          )
+        )
       ),
-      selectInput(
-        "coordinate_uncertainty_col",
-        "Coordinate uncertainty column",
-        choices =c("None" = "", cols),
-        multiple = FALSE,
-        selected = {
-          hit <- grep("coordinateUncertainty", cols, value = TRUE)[1]
-          if (is.na(hit)) NULL else hit
-        }
+      column(6,
+        tagList(
+          numericInput(
+            "coordinate_uncertainty_na",
+            "Replacement value for missing coordinate uncertainty (meters)",
+            value = 1000,
+            min = 0
+          ),
+          checkboxInput(
+            "use_custom_uncertainty",
+            "Specify different uncertainty values for time periods",
+            value = FALSE
+          ),
+          
+          disabled(textInput(
+            "custom_uncertainty",
+            "Custom uncertainty (m): e.g. 2000-2010, 500; 2011-2020, 200; 2021-2026, 50",
+          )),
+            
+          
+        )
       ),
-      numericInput(
-        "seed",
-        "Establish seed for random grid allocation",
-        value = 42,
-        min = 0
-      ),
-      numericInput(
-        "coordinate_uncertainty_na",
-        "Replacement value for missing coordinate uncertainty (meters)",
-        value = 1000,
-        min = 0
-      ),
-      checkboxInput(
-        "use_custom_uncertainty",
-        "Specify different uncertainty values for time periods",
-        value = FALSE
-      ),
-      
-      disabled(textInput(
-        "custom_uncertainty",
-        "Custom uncertainty (m): e.g. 2000-2010, 500; 2011-2020, 200; 2021-2026, 50",
-      )),
-        
       actionButton(
         "apply_cube_config",
         "Create cube"
