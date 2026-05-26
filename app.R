@@ -118,31 +118,13 @@ ui <- page_sidebar(
         condition = "output.config_done == true",
         # return created cube based on the config once it's done
         tableOutput(outputId = "processed"),
-        downloadButton("downloadData", "Download") ,
+        downloadButton("downloadData", "Download")
+        
         
         
       )
     ),
     # Merge with another cube
-   # nav_panel(
-      # "Merge Cubes original",
-      # fileInput(
-      #   "new_cube",
-      #   "Choose CSV File",
-      #   multiple = TRUE,
-      #   accept = c(
-      #     "text/csv",
-      #     "text/comma-separated-values,text/plain",
-      #     ".csv"
-      #   )
-      # ),
-      # 
-      # 
-      # 
-      # tableOutput(outputId = "merged"),
-      # 
-      # downloadButton("downloadMerged", "Download")
-    #),
     
     nav_panel(
       "Merge Cubes",
@@ -226,13 +208,6 @@ server <- function(input, output) {
       target_grid <- st_read(input$file_grid$datapath)
     }
 
-    # Set the seed for reproducibility
-    # if (input$seed) {
-    #   set.seed(as.integer(input$seed) )
-    # }
-    #
-    # assign GBIF species key for your specie e.g., Cakile maritima
-    # specieskey <- "3048831" # automate specieskey extraction from GBIF
     # define data layer projection
     grid_crs <- st_crs(4326)
 
@@ -268,22 +243,17 @@ server <- function(input, output) {
     floppydatacube <- floppydisk2cube(data_in = corrected_uncertainty,
                                      aggregate_columns = aggregate_cols, 
                                      target_grid = target_grid,
-                                     grid_crs = grid_crs)
+                                     grid_crs = grid_crs,
+                                     seed=input$seed)
     #Will this cause issues in the server? Do I really need this to be global?
     data_cube <<- floppydatacube
 
     return(floppydatacube)
   })
 
-  config_done <- reactiveVal(FALSE)
-
   # create panel for cube configuration based on data in uploaded file
   output$cube_config_ui <- renderUI({
     req(retrieve_file())
-
-    if (config_done()) {
-      return(NULL)
-    }
 
     # get columns from uploaded file
     cols <- names(retrieve_file())
@@ -304,6 +274,12 @@ server <- function(input, output) {
           hit <- grep("coordinateUncertainty", cols, value = TRUE)[1]
           if (is.na(hit)) NULL else hit
         }
+      ),
+      numericInput(
+        "seed",
+        "Establish seed for random grid allocation",
+        value = 42,
+        min = 0
       ),
       numericInput(
         "coordinate_uncertainty_na",
@@ -340,16 +316,19 @@ server <- function(input, output) {
       shinyjs::disable("custom_uncertainty")
     }
   })
-
+  
+  config_done <- reactiveVal(FALSE)
+  
   # check if necessay options have been set
   observeEvent(input$apply_cube_config, {
     req(input$aggregate_cols)
 
-
     config_done(TRUE)
   })
-
+  
+ 
   output$config_done <- reactive({
+    
     config_done()
   })
 
@@ -398,34 +377,7 @@ server <- function(input, output) {
       where = "beforeEnd",
       ui = div(
         id = paste0("map_row_", i),
-        #fluidRow(
-          
-          # column(
-          #   5,
-          #   selectInput(
-          #     paste0("map_a_", i),
-          #     "Cube A column",
-          #     choices = c("-- skip --" = "", cols_a)
-          #   )
-          # ),
-          # 
-          # column(
-          #   5,
-          #   selectInput(
-          #     paste0("map_b_", i),
-          #     "Cube B column",
-          #     choices = c("-- skip --" = "", cols_b)
-          #   )
-          # ),
-          # 
-          # column(
-          #   2,
-          #   actionButton(paste0("remove_", i), "✖")
-          # )
-          
-          
-        #)
-        
+       
         fluidRow(
           
           #row with input fields that will appear after pressing "add mapping" button       
@@ -530,18 +482,6 @@ server <- function(input, output) {
     }
   )
 
-  
-  # output$merged <- renderTable({
-  #   validate(
-  #     need(input$new_cube != "", "Please upload a new cube to merge with the one you just created!")
-  #   )
-  # 
-  #   merged_cube <- merge_cubes(retrieve_new_cube_file(), data_into_cube())
-  # 
-  #   return(merged_cube)
-  # })
-
-
   # Downloadable csv of selected dataset ----
   output$downloadData <- downloadHandler(
     filename = "processed_data.csv",
@@ -552,14 +492,7 @@ server <- function(input, output) {
     }
   )
 
-  # output$downloadMerged <- downloadHandler(
-  #   filename = "merged_data.csv",
-  #   content = function(file) {
-  #     req(input$new_cube)
-  #     req(retrieve_new_cube_file())
-  #     write.csv(merge_cubes(retrieve_new_cube_file(), data_into_cube()), file, row.names = FALSE, quote = F)
-  #   }
-  # )
+ 
 }
 
 # Create Shiny app ----

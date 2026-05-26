@@ -3,10 +3,11 @@ floppydisk2cube <- function(data_in,
                             aggregate_columns,
                             uncertainty_columns = c("coordinateUncertaintyInMeters"),
                             target_grid,
-                            grid_crs) {
+                            grid_crs,
+                            seed) {
   
   #new coordinates will be created based on randomization found in Oldoni et al.2020
-  data_2 <- assign_occurrence_within_uncertainty_circle(data_in)
+  data_2 <- assign_occurrence_within_uncertainty_circle(data_in, seed)
   # convert data to a vector layer
   occ <- st_as_sf(data_2, coords = c("x", "y"), crs = grid_crs)
 
@@ -123,7 +124,7 @@ get_uncertainty_time_period <- function(time_periods, value, default_na){
       
   }
   #if a corresponding time period was not found return the previously established default
-  return(default_na)
+  return(as.integer(default_na))
   
 }
 
@@ -142,7 +143,7 @@ assess_uncertainty <- function(data, coord_uncertainty_col = "coordinateUncertai
     
     time_periods <- strsplit(special_rule, ';')
     
-    data <- data %>% mutate(coordinateUncertaintyInMeters2 = ifelse(is.na(coordinateUncertaintyInMeters), 
+    data <- data %>% mutate(coordinateUncertaintyInMeters = ifelse(is.na(coordinateUncertaintyInMeters), 
                                                                    mapply(function(y) get_uncertainty_time_period(time_periods, y, default_na), year), coordinateUncertaintyInMeters))
     
   }
@@ -150,9 +151,10 @@ assess_uncertainty <- function(data, coord_uncertainty_col = "coordinateUncertai
   return(data)
 }
 
-assign_occurrence_within_uncertainty_circle <- function(geodata_df){
+assign_occurrence_within_uncertainty_circle <- function(geodata_df, seed){
   #gets a random point from within the circle created from the uncertainty values
   #is necessary for random grid allocation
+  
 
   coordinates(geodata_df) <- ~decimalLongitude+decimalLatitude
   proj4string(geodata_df) <- CRS("+init=epsg:4326")
@@ -160,6 +162,9 @@ assign_occurrence_within_uncertainty_circle <- function(geodata_df){
   colnames(geodata_df@coords) <- c("x", "y")
   
   nrow_geodata_df <- nrow(geodata_df)
+  
+  # Set the seed for reproducibility
+  set.seed(as.integer(seed) )
   
   geodata_df@data <-
     geodata_df@data %>%
