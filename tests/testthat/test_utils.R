@@ -100,10 +100,22 @@ test_that("assess_uncertainty replaces NA values in existing uncertainty column"
     coordinateUncertaintyInMeters = c(NA, 50),
     stringsAsFactors = FALSE
   )
+  
+  data2 <- data.frame(
+    decimalLatitude = 10,
+    decimalLongitude = 5,
+    coordinateUncertaintyInMeters = c(NA, 50, NA, NA, NA),
+    year=c(2015, 2019, 2020, 2023, 2025),
+    stringsAsFactors = FALSE
+    
+  )
+  
 
   result <- assess_uncertainty(data, coord_uncertainty_col = "coordinateUncertaintyInMeters", default_na = 500)
+  result2 <- assess_uncertainty(data2, coord_uncertainty_col = "coordinateUncertaintyInMeters", special_rule = '2017-2020, 200; 2021-2026, 10')
 
   expect_equal(result$coordinateUncertaintyInMeters, c(500, 50))
+  expect_equal(result2$coordinateUncertaintyInMeters, c(1000, 50, 200, 10, 10 ))
 })
 
 
