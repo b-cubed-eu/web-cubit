@@ -38,18 +38,6 @@ test_that("filter_missing_coords excludes rows with missing coordinates", {
 })
 
 
-test_that("filter_missing_coords errors when coordinate columns are not adjacent", {
-  input_data <- data.frame(
-    decimalLatitude = 10,
-    species = "A",
-    decimalLongitude = 5,
-    stringsAsFactors = FALSE
-  )
-
-  expect_error(filter_missing_coords(input_data), "Longitude column must be immediately after Latitude")
-})
-
-
 test_that("check_req_fields returns NULL when all required fields are present", {
   data <- data.frame(
     countryCode = "US",

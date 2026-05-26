@@ -36,14 +36,7 @@ floppydisk2cube <- function(data_in,
 
 
 filter_missing_coords <- function(data) {
-  # might change to user-defined columns of coordinates
-  i_lat <- grep("decimalLatitude", names(data))
-  i_long <- grep("decimalLongitude", names(data))
-
-  if (i_lat + 1 != i_long) {
-    stop("Longitude column must be immediately after Latitude")
-  }
-
+  # # might change to user-defined columns of coordinates
   data_filt <- data[complete.cases(data[, c("decimalLatitude", "decimalLongitude")]), ]
 
   return(data_filt)
@@ -189,4 +182,4 @@ assign_occurrence_within_uncertainty_circle <- function(geodata_df, seed){
   return(geodata_df)
 }
 
-# need to add a way to download metadata on the generation of the cube (see deliverable 2.1 - section 3.4)
+
