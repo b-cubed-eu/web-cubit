@@ -1,0 +1,12 @@
+input_header = TRUE
+input_sep = '\t'
+input_quote = FALSE
+input_grid_source = 'preset'
+input_preset_choice = '100km'
+input_file_grid_datapath = ''  #need to change grid source from preset to custom to use this
+input_aggregate_cols = c('speciesKey', 'countryCode', 'year')
+input_coordinate_uncertainty_col= 'coordinateUncertaintyInMeters'
+input_coordinate_uncertainty_na= 1000
+input_use_custom_uncertainty = FALSE
+input_custom_uncertainty= ''
+input_seed = 42

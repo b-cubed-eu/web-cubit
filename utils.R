@@ -48,19 +48,18 @@ Cubit_error_message <- "Please select a dataset containing the following informa
 countryCode, scientificName, decimalLatitude, decimalLongitude, year, specieskey."
 
 
-check_req_fields <- function(data) {
-  # check for countryCode, scientificName, decimalLatitude, decimalLongitude, year
-
-  req_fields <- c("countryCode", "scientificName", "decimalLatitude", "decimalLongitude", "year", "speciesKey")
-
+check_req_fields <- function(data, req_fields=c("decimalLatitude", "decimalLongitude")) {
+  # checks for required fields
+  #req_fields argument expects a character vector
+  missing_fields <- c()
   for (f in req_fields) {
     if (f %nin% names(data)) {
-      return(paste("countryCode column not found. ", Cubit_error_message, ""))
+      missing_fields <- c(missing_fields, f)
     }
   }
-
-
-  # must be before missing coords
+  if (!is.null(missing_fields)){
+    return(paste("Missing", paste(missing_fields, collapse=', ') , ".", "Please select a dataset containing the following information: ", paste(req_fields, collapse=', '), ""))
+  }
 }
 
 # load preset grids

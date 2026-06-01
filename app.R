@@ -154,7 +154,7 @@ ui <- page_sidebar(
 
 server <- function(input, output) {
   # set max size of upload to 30MB
-  options(shiny.maxRequestSize = 30 * 1024^2)
+  options(shiny.maxRequestSize = 200 * 1024^2)
   #display generic error message instead of full error trace
   #options(shiny.sanitize.errors = TRUE)
 
@@ -170,7 +170,7 @@ server <- function(input, output) {
       quote = input$quote
     )
 
-    # every occurrences must have corresponding coordinates
+    # every occurrence must have corresponding coordinates
     df_filt <- filter_missing_coords(df)
 
     return(df_filt)
@@ -346,7 +346,7 @@ server <- function(input, output) {
 
   output$processed <- renderTable({
     validate(
-      need(input$file1 != "", Cubit_error_message)
+      need(input$file1 != "", 'Please select a valid dataset')
     )
 
     validate(
@@ -468,8 +468,8 @@ server <- function(input, output) {
     
    
     merge_cubes(
-      data_into_cube(),
       retrieve_new_cube_file(),
+      data_into_cube(),
       map
       
     )
@@ -487,7 +487,7 @@ server <- function(input, output) {
   output$downloadMerged <- downloadHandler(
     filename = "merged_cube.csv",
     content = function(file) {
-      write.csv(merged_data(), file, row.names = FALSE)
+      write.csv(merged_data(), file, row.names = FALSE, quote=F)
     }
   )
 

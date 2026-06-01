@@ -57,13 +57,19 @@ test_that("check_req_fields reports missing required columns", {
   data <- data.frame(
     scientificName = "Test species",
     decimalLatitude = 10,
-    decimalLongitude = 5,
     year = 2020,
     speciesKey = 123,
     stringsAsFactors = FALSE
   )
 
-  expect_match(check_req_fields(data), "countryCode column not found")
+  expect_match(
+    check_req_fields(data, 
+                     req_fields = c('decimalLatitude', 'decimalLongitude', 'scientificName', 'year', 'speciesKey', 'countryCode')), 
+                        "Missing decimalLongitude, countryCode. ")
+  expect_match(
+    check_req_fields(data, "Missing decimalLongitude"),
+    "Missing decimalLongitude"
+  )
 })
 
 
