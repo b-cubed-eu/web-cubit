@@ -171,7 +171,7 @@ server <- function(input, output) {
     )
 
     # every occurrence must have corresponding coordinates
-    df_filt <- filter_missing_coords(df)
+    df_filt <- filter_missing_coords(df, y_col = input$y_col, x_col = input$x_col)
 
     return(df_filt)
   })
@@ -209,7 +209,12 @@ server <- function(input, output) {
     }
 
     # define data layer projection
-    grid_crs <- st_crs(4326)
+    if (input$grid_crs){
+      grid_crs <- st_crs(input$grid_crs)
+    } else {
+      grid_crs <- st_crs(4326) # default to WGS84
+    }
+    
 
     # join user-defined columns for aggregating with the necessary eeacellcode that will be defined from the coordinates
     aggregate_cols <- c("eeacellcode", input$aggregate_cols)
@@ -282,7 +287,13 @@ server <- function(input, output) {
             "Establish seed for random grid allocation",
             value = 42,
             min = 0
-          )
+          ),
+          numericInput(
+            "grid_crs",
+            "Set data layer projection (EPSG code)",
+            value = 4326,
+            min = 0
+          ),
         )
       ),
       column(6,

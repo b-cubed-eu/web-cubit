@@ -1,6 +1,6 @@
 input_header = TRUE
 input_sep = '\t'
-input_quote = FALSE
+input_quote = "\""
 input_grid_source = 'preset'
 input_preset_choice = '100km'
 input_file_grid_datapath = ''  #need to change grid source from preset to custom to use this

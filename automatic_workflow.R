@@ -9,18 +9,20 @@ library(shinyjs)
 library(stringr)
 library(sp)
 library(R.utils)
+library(data.table)
 
 source('utils.R')
 source('config.R')
 
-args = commandArgs(trailingOnly=FALSE, asValues=TRUE)
-print(args)
-
+#args = commandArgs(trailingOnly=FALSE, asValues=TRUE)
+#print(args)
+for (file in files2process){
+  
 df <- read.csv(
-  args$file1, 
+  file, 
   header = input_header,
   sep = input_sep,
-  quote = input_quote
+  #quote = input_quote
 )
 
 # every occurrence must have corresponding coordinates
@@ -40,7 +42,7 @@ if (input_grid_source == "custom") {
 grid_crs <- st_crs(4326)
 
 # join user-defined columns for aggregating with the necessary eeacellcode that will be defined from the coordinates
-aggregate_cols <- c("eeacellcode", input$aggregate_cols)
+aggregate_cols <- c("eeacellcode", input_aggregate_cols)
 
 if (isFALSE(input_use_custom_uncertainty)){
   
@@ -74,4 +76,8 @@ floppydatacube <- floppydisk2cube(data_in = corrected_uncertainty,
                                   seed=input_seed)
 
 #outputfilename should be args
-write.csv(floppydatacube, args$output, row.names = FALSE, quote = F )
+output_name <- gsub('temp', 'cube', file)
+write.csv(floppydatacube, output_name, row.names = FALSE, quote = F )
+}
+
+files2process <- list.files('../easyTransfer-WO0md7Hl(3)/', pattern='.temp.csv', full.names=TRUE)

@@ -4,10 +4,10 @@ floppydisk2cube <- function(data_in,
                             uncertainty_columns = c("coordinateUncertaintyInMeters"),
                             target_grid,
                             grid_crs,
-                            seed) {
+                            seed, y_col='decimalLatitude', x_col='decimalLongitude') {
   
   #new coordinates will be created based on randomization found in Oldoni et al.2020
-  data_2 <- assign_occurrence_within_uncertainty_circle(data_in, seed)
+  data_2 <- assign_occurrence_within_uncertainty_circle(data_in, seed, as.character(grid_crs$espg), y_col = y_col, x_col = x_col)
   # convert data to a vector layer
   occ <- st_as_sf(data_2, coords = c("x", "y"), crs = grid_crs)
 
@@ -35,17 +35,15 @@ floppydisk2cube <- function(data_in,
 }
 
 
-filter_missing_coords <- function(data) {
-  # # might change to user-defined columns of coordinates
-  data_filt <- data[complete.cases(data[, c("decimalLatitude", "decimalLongitude")]), ]
+filter_missing_coords <- function(data, y_col = "decimalLatitude", x_col = "decimalLongitude") {
+  # changed to user-defined columns of coordinates
+  data_filt <- data[complete.cases(data[, c(y_col, x_col)]), ]
 
   return(data_filt)
 }
 
 "%nin%" <- Negate("%in%")
 
-Cubit_error_message <- "Please select a dataset containing the following information: 
-countryCode, scientificName, decimalLatitude, decimalLongitude, year, specieskey."
 
 
 check_req_fields <- function(data, req_fields=c("decimalLatitude", "decimalLongitude")) {
@@ -143,13 +141,13 @@ assess_uncertainty <- function(data, coord_uncertainty_col = "coordinateUncertai
   return(data)
 }
 
-assign_occurrence_within_uncertainty_circle <- function(geodata_df, seed){
+assign_occurrence_within_uncertainty_circle <- function(geodata_df, seed, data_projection="4326", y_col = "decimalLatitude", x_col = "decimalLongitude") {
   #gets a random point from within the circle created from the uncertainty values
   #is necessary for random grid allocation
   
 
-  coordinates(geodata_df) <- ~decimalLongitude+decimalLatitude
-  proj4string(geodata_df) <- CRS("+init=epsg:4326")
+  coordinates(geodata_df) <-as.formula(paste("~", x_col, "+", y_col))
+  proj4string(geodata_df) <- CRS(paste("+init=epsg",data_projection, sep=":"))
   geodata_df <- spTransform(geodata_df, CRS("+init=epsg:3035"))
   colnames(geodata_df@coords) <- c("x", "y")
   
