@@ -120,6 +120,7 @@ test_that("merge_cubes sums counts for overlapping cube rows", {
     countryCode = c("US", "FR"),
     year = c(2020, 2021),
     count = c(2L, 3L),
+    coordinateUncertaintyInMeters = c(4,15),
     stringsAsFactors = FALSE
   )
 
@@ -129,17 +130,18 @@ test_that("merge_cubes sums counts for overlapping cube rows", {
     countryCode = c("US", "FR"),
     year = c(2020, 2021),
     count = c(5L, 7L),
+    coordinateUncertaintyInMeters = c(30, 5),
     stringsAsFactors = FALSE
   )
   
   map_df <- data.frame(
-    a = c("eeacellcode", "speciesKey", "countryCode", "year"),
-    b = c("eeacellcode", "speciesKey", "countryCode", "year"),
+    a = c("eeacellcode", "speciesKey", "countryCode", "year", 'coordinateUncertaintyInMeters' ),
+    b = c("eeacellcode", "speciesKey", "countryCode", "year", 'coordinateUncertaintyInMeters'),
     stringsAsFactors = FALSE
   )
   
 
-  merged <- merge_cubes(new_cube, processed_cube, map_df)
+  merged <- merge_cubes(new_cube, processed_cube, map_df, col_min='coordinateUncertaintyInMeters')
 
   expect_equal(nrow(merged), 2)
   expect_equal(merged$count, c(7L, 10L))

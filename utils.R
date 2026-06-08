@@ -79,21 +79,39 @@ get_corresponding_preset_grid <- function(km) {
   }
 }
 
-merge_cubes <- function(new_cube, processed_cube, map_df) {
-  # merge processed with a new cube e.g. downloaded from GBIF
-  #to do: keep min of coordinate uncertainty
-
+merge_cubes <- function(new_cube, processed_cube, map_df, col_min) {
+  # merge processed cube with a new one e.g. downloaded from GBIF
+  
   names(new_cube)[match(map_df$b, names(new_cube))] <- map_df$a
   
-  merged_cube <- merge(processed_cube, new_cube, 
-                      by=map_df$a,
-                      all.x = T, all.y = T)
+  agg_cols <- map_df$a[map_df$a != col_min]
   
-  #create a new column with the total of both cube's occurrences for each cell
-  merged_cube <- merged_cube %>% mutate(count = as.integer(rowSums(across(c(count.x, count.y)))))
-
+  #make sure coordinate uncertainty column is called like this to feed into dplyr
+  processed_cube <- processed_cube %>% 
+    rename_at(col_min, ~'coordinateUncertaintyInMeters')
+  merged_cube <- merged_cube %>% 
+    rename_at(col_min, ~'coordinateUncertaintyInMeters')
+  
+  
+  merged_cube <- bind_rows(processed_cube, new_cube) %>% group_by(across(all_of(agg_cols))) %>%
+    summarise(
+      coordinateUncertaintyInMeters =
+        min(coordinateUncertaintyInMeters, na.rm = TRUE),
+      
+      count =
+        sum(count, na.rm = TRUE),
+      
+      .groups = "drop"
+    )
+  
+  merged_cube <- merged_cube %>% 
+    rename_at('coordinateUncertaintyInMeters', ~col_min)
+  
   # delete unnecessary count columns
   merged_cube <- merged_cube %>% select(c(map_df$a, count))
+  
+  merged_cube <- merged_cube %>% 
+    rename_at('coordinateUncertaintyInMeters', ~col_min)
 
   return(merged_cube)
 }

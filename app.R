@@ -496,7 +496,8 @@ server <- function(input, output) {
     merge_cubes(
       retrieve_new_cube_file(),
       data_into_cube(),
-      map
+      map,
+      input$coordinate_uncertainty_col
       
     )
   })
