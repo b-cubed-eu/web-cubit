@@ -220,7 +220,7 @@ server <- function(input, output) {
     aggregate_cols <- c("eeacellcode", input$aggregate_cols)
     
     if (isFALSE(input$use_custom_uncertainty)){
-
+      
       if (isTRUE(input$coordinate_uncertainty_col)) {
         if (isTRUE(input$coordinate_uncertainty_na)) {
           corrected_uncertainty <- assess_uncertainty(retrieve_file(),
@@ -232,7 +232,8 @@ server <- function(input, output) {
         }
         # if the user didn't choose anything use defaults
       } else {
-        corrected_uncertainty <- assess_uncertainty(retrieve_file())
+        
+        corrected_uncertainty <- assess_uncertainty(retrieve_file(), default_na = input$coordinate_uncertainty_na)
       }
     } else {
       
@@ -249,7 +250,9 @@ server <- function(input, output) {
                                      aggregate_columns = aggregate_cols, 
                                      target_grid = target_grid,
                                      grid_crs = grid_crs,
-                                     seed=input$seed)
+                                     seed=input$seed,
+                                     y_col=input$y_col,
+                                     x_col=input$x_col)
     #Will this cause issues in the server? Do I really need this to be global?
     data_cube <<- floppydatacube
 
@@ -298,6 +301,26 @@ server <- function(input, output) {
       ),
       column(6,
         tagList(
+          selectInput(
+            "y_col",
+            "Y-coordinate/Latitude",
+            choices =c("None" = "", cols),
+            multiple = FALSE,
+            selected = {
+              hit <- grep("Latitude", cols, value = TRUE, ignore.case=TRUE)[1]
+              if (is.na(hit)) NULL else hit
+            }
+          ),
+          selectInput(
+            "x_col",
+            "X-coordinate/Longitude",
+            choices =c("None" = "", cols),
+            multiple = FALSE,
+            selected = {
+              hit <- grep("Longitude", cols, value = TRUE, ignore.case=TRUE)[1]
+              if (is.na(hit)) NULL else hit
+            }
+          ),
           numericInput(
             "coordinate_uncertainty_na",
             "Replacement value for missing coordinate uncertainty (meters)",

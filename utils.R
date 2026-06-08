@@ -7,7 +7,7 @@ floppydisk2cube <- function(data_in,
                             seed, y_col='decimalLatitude', x_col='decimalLongitude') {
   
   #new coordinates will be created based on randomization found in Oldoni et al.2020
-  data_2 <- assign_occurrence_within_uncertainty_circle(data_in, seed, as.character(grid_crs$espg), y_col = y_col, x_col = x_col)
+  data_2 <- assign_occurrence_within_uncertainty_circle(data_in, seed, as.character(strsplit(grid_crs$input,':')[[1]][2]), y_col = y_col, x_col = x_col)
   # convert data to a vector layer
   occ <- st_as_sf(data_2, coords = c("x", "y"), crs = grid_crs)
 

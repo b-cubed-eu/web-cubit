@@ -1,3 +1,4 @@
+input_file_datapath = '../easyTransfer-WO0md7Hl(3)/testing_automatic_workflow/input_file.csv'
 input_header = TRUE
 input_sep = '\t'
 input_quote = "\""

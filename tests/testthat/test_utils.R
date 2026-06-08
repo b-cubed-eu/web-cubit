@@ -191,7 +191,8 @@ test_that("floppydisk2cube aggregates occurrences into target grid cells", {
     aggregate_columns = c("species", "eeacellcode"),
     uncertainty_columns = c("coordinateUncertaintyInMeters"),
     target_grid = target_grid,
-    grid_crs = 4326
+    grid_crs = st_crs(4326), 
+    seed=42
   )
   
   # ---- Expectations ----

@@ -16,6 +16,11 @@ source('config.R')
 
 #args = commandArgs(trailingOnly=FALSE, asValues=TRUE)
 #print(args)
+
+proj_dir <- dirname(input_file_datapath)
+
+files2process <- list.files(proj_dir, pattern='.temp.csv', full.names=TRUE)
+print(files2process)
 for (file in files2process){
   
 df <- read.csv(
@@ -75,9 +80,12 @@ floppydatacube <- floppydisk2cube(data_in = corrected_uncertainty,
                                   grid_crs = grid_crs,
                                   seed=input_seed)
 
+print(file)
+
 #outputfilename should be args
-output_name <- gsub('temp', 'cube', file)
+output_name <- gsub('temp', 'temp_cube', file)
+print(output_name)
 write.csv(floppydatacube, output_name, row.names = FALSE, quote = F )
 }
 
-files2process <- list.files('../easyTransfer-WO0md7Hl(3)/', pattern='.temp.csv', full.names=TRUE)
+
