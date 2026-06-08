@@ -221,20 +221,12 @@ server <- function(input, output) {
     
     if (isFALSE(input$use_custom_uncertainty)){
       
-      if (isTRUE(input$coordinate_uncertainty_col)) {
-        if (isTRUE(input$coordinate_uncertainty_na)) {
-          corrected_uncertainty <- assess_uncertainty(retrieve_file(),
-                                  coord_uncertainty_col = input$coordinate_uncertainty_col, 
-                                  default_na = input$coordinate_uncertainty_na)
-        } else {
-          corrected_uncertainty <- assess_uncertainty(retrieve_file(), 
-                                   coord_uncertainty_col = input$coordinate_uncertainty_col)
-        }
-        # if the user didn't choose anything use defaults
-      } else {
-        
-        corrected_uncertainty <- assess_uncertainty(retrieve_file(), default_na = input$coordinate_uncertainty_na)
-      }
+     
+     
+        corrected_uncertainty <- assess_uncertainty(retrieve_file(),
+                                coord_uncertainty_col = input$coordinate_uncertainty_col, 
+                                default_na = input$coordinate_uncertainty_na)
+      
     } else {
       
       
