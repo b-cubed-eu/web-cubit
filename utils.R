@@ -61,7 +61,7 @@ check_req_fields <- function(data, req_fields=c("decimalLatitude", "decimalLongi
 }
 
 # load preset grids
-#grid_10km <- st_read("eea_grid/Grid_ETRS89-LAEA_10K.shp")
+grid_10km <- st_read("eea_grid/Grid_ETRS89-LAEA_10K.shp")
 grid_100km <- st_read("eea_grid/Grid_ETRS89-LAEA_100K.shp")
 
 
@@ -110,8 +110,6 @@ merge_cubes <- function(new_cube, processed_cube, map_df, col_min) {
   # delete unnecessary count columns
   merged_cube <- merged_cube %>% select(c(map_df$a, count))
   
-  merged_cube <- merged_cube %>% 
-    rename_at('coordinateUncertaintyInMeters', ~col_min)
 
   return(merged_cube)
 }
