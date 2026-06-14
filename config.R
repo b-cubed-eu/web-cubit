@@ -1,9 +1,10 @@
-input_file_datapath = '../easyTransfer-WO0md7Hl(3)/testing_automatic_workflow/input_file.csv'
+input_file_datapath = '../test_docker/data2/merged_SPECIES.csv'
+output_file_datapath = '../test_docker/data2/merged_SPECIES_cube.csv'
 input_header = TRUE
 input_sep = '\t'
 input_quote = "\""
 input_grid_source = 'preset'
-input_preset_choice = '100km'
+input_preset_choice = '10km'
 input_file_grid_datapath = ''  #need to change grid source from preset to custom to use this
 input_aggregate_cols = c('speciesKey', 'countryCode', 'year')
 input_coordinate_uncertainty_col= 'coordinateUncertaintyInMeters'
