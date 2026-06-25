@@ -30,7 +30,9 @@ ui <- page_sidebar(
       multiple = FALSE,
       accept = c(
         "text/csv",
-        ".csv"
+        ".csv",
+        "text/tsv",
+        ".tsv"
       )
     ),
     selectInput("grid_source", "Choose grid:",
@@ -45,9 +47,9 @@ ui <- page_sidebar(
       condition = "input.grid_source == 'preset'",
       selectInput("preset_choice", "Select a preset grid:",
         choices = c(
-          "Grid 100km" = "100km",
-          "Grid 10km" = "10km",
-          "Grid 1km" = "1km"
+          "EEA 100km" = "100km",
+          "EEA 10km" = "10km",
+          "EEA 1km" = "1km"
         )
       )
     ),
@@ -55,53 +57,26 @@ ui <- page_sidebar(
     # Show file upload only if "custom" selected
     conditionalPanel(
       condition = "input.grid_source == 'custom'",
-      fileInput("file_grid", "Upload your file:", accept = ".gpkg")
+      fileInput("file_grid", "Upload your file:", accept = ".gpkg"),
+      
+      numericInput(
+        "grid_crs",
+        "Indicate data layer projection (EPSG code)",
+        value = 4326,
+        min = 0
+      )
     ),
 
 
     # Horizontal line ----
     tags$hr(),
-
-    # Input: Checkbox if file has header ----
-    checkboxInput("header", "Header", TRUE),
-
-    # Input: Select separator ----
-    radioButtons(
-      "sep",
-      "Separator",
-      choices = c(
-        Comma = ",",
-        Semicolon = ";",
-        Tab = "\t"
-      ),
-      selected = ","
-    ),
-
-    # Input: Select quotes ----
-    radioButtons(
-      "quote",
-      "Quote",
-      choices = c(
-        None = "",
-        "Double Quote" = '"',
-        "Single Quote" = "'"
-      ),
-      selected = '"'
-    ),
+    
+    uiOutput("csv_options_ui"),
 
     # Horizontal line ----
     tags$hr(),
 
-    # Input: Select number of rows to display ----
-    radioButtons(
-      "disp",
-      "Display",
-      choices = c(
-        Head = "head",
-        All = "all"
-      ),
-      selected = "head"
-    )
+   
   ),
 
 
@@ -131,8 +106,8 @@ ui <- page_sidebar(
       
       fileInput(
         "new_cube",
-        "Choose second cube (CSV)",
-        accept = c(".csv")
+        "Choose second cube (CSV/TSV)",
+        accept = c(".csv", ".tsv")
       ),
       
       tags$hr(),
@@ -157,12 +132,51 @@ server <- function(input, output) {
   options(shiny.maxRequestSize = 200 * 1024^2)
   #display generic error message instead of full error trace
   #options(shiny.sanitize.errors = TRUE)
+  output$csv_options_ui <- renderUI({
+    
+    req(input$file1)
+    
+    tagList(
+    
+      # Input: Checkbox if file has header ----
+      checkboxInput("header", "Header", TRUE),
+      
+      # Input: Select separator ----
+      radioButtons(
+        "sep",
+        "Separator",
+        choices = c(
+          Comma = ",",
+          Semicolon = ";",
+          Tab = "\t"
+        ),
+        selected = ","
+      ),
+      
+      # Input: Select quotes ----
+      radioButtons(
+        "quote",
+        "Quote",
+        choices = c(
+          None = "",
+          "Double Quote" = '"',
+          "Single Quote" = "'"
+        ),
+        selected = '"'
+    ),
+    actionButton(
+      "load_file",
+      "Load file"
+    )
+    )
+      
+    
+  })
 
   # read uploaded file
-  retrieve_file <- reactive({
+  retrieve_file <- eventReactive(input$load_file, {
     req(input$file1)
-
-
+    
     df <- read.csv(
       input$file1$datapath,
       header = input$header,
@@ -170,28 +184,27 @@ server <- function(input, output) {
       quote = input$quote
     )
 
-    # every occurrence must have corresponding coordinates
-    df_filt <- filter_missing_coords(df, y_col = input$y_col, x_col = input$x_col)
+    
 
-    return(df_filt)
+    return(df)
   })
+  
 
   output$contents <- renderTable({
     # input$file1 will be NULL initially. After the user selects
-    # and uploads a file, head of that data file by default,
-    # or all rows if selected, will be shown.
-
+    # and uploads a file, head of that data file will be shown.
+    req(retrieve_file())
 
     validate(
-      need(input$file1 != "", "Please select a data set")
+      need(!is.null(input$file1), "Please select a data set")
     )
+    
+    
 
-
-    if (input$disp == "head") {
-      return(head(retrieve_file()))
-    } else {
-      return(retrieve_file())
-    }
+    
+    
+    return(head(retrieve_file()))
+    
   })
 
   data_into_cube <- reactive({
@@ -219,25 +232,28 @@ server <- function(input, output) {
     # join user-defined columns for aggregating with the necessary eeacellcode that will be defined from the coordinates
     aggregate_cols <- c("eeacellcode", input$aggregate_cols)
     
+    # every occurrence must have corresponding coordinates
+    df_filt <- filter_missing_coords(retrieve_file(), y_col = input$y_col, x_col = input$x_col)
+    
+    df_filt <- df_filt %>% rename_at(input$coordinate_uncertainty_col, ~'coordinateUncertainty')
+    
     if (isFALSE(input$use_custom_uncertainty)){
       
      
      
-        corrected_uncertainty <- assess_uncertainty(retrieve_file(),
-                                coord_uncertainty_col = input$coordinate_uncertainty_col, 
+        corrected_uncertainty <- assess_uncertainty(df_filt,
                                 default_na = input$coordinate_uncertainty_na)
       
     } else {
       
       
-        corrected_uncertainty <- assess_uncertainty(retrieve_file(), coord_uncertainty_col = input$coordinate_uncertainty_col, special_rule=input$custom_uncertainty)
+        corrected_uncertainty <- assess_uncertainty(df_filt, special_rule=input$custom_uncertainty)
       
-        #I need to check for user input for custom coord uncertainty and if it does not exist return error
-        #print('return error')
       }
         
-   
+    
     # main function for cubing data
+    
     floppydatacube <- floppydisk2cube(data_in = corrected_uncertainty,
                                      aggregate_columns = aggregate_cols, 
                                      target_grid = target_grid,
@@ -245,6 +261,9 @@ server <- function(input, output) {
                                      seed=input$seed,
                                      y_col=input$y_col,
                                      x_col=input$x_col)
+    
+    floppydatacube <- floppydatacube %>% rename_at('coordinateUncertainty', ~input$coordinate_uncertainty_col)
+    
     #Will this cause issues in the server? Do I really need this to be global?
     data_cube <<- floppydatacube
 
@@ -269,7 +288,7 @@ server <- function(input, output) {
           ),
           selectInput(
             "coordinate_uncertainty_col",
-            "Coordinate uncertainty column",
+            "Coordinate uncertainty",
             choices =c("None" = "", cols),
             multiple = FALSE,
             selected = {
@@ -282,13 +301,8 @@ server <- function(input, output) {
             "Establish seed for random grid allocation",
             value = 42,
             min = 0
-          ),
-          numericInput(
-            "grid_crs",
-            "Set data layer projection (EPSG code)",
-            value = 4326,
-            min = 0
-          ),
+          )
+          
         )
       ),
       column(6,

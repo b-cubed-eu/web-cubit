@@ -1,10 +1,12 @@
 #coonvert a list of species occurrences with coordinates to a data cube
 floppydisk2cube <- function(data_in,
                             aggregate_columns,
-                            uncertainty_columns = c("coordinateUncertaintyInMeters"),
                             target_grid,
                             grid_crs,
                             seed, y_col='decimalLatitude', x_col='decimalLongitude') {
+  
+  data_in[[y_col]] <- as.numeric(data_in[[y_col]])
+  data_in[[x_col]] <- as.numeric(data_in[[x_col]])
   
   #new coordinates will be created based on randomization found in Oldoni et al.2020
   data_2 <- assign_occurrence_within_uncertainty_circle(data_in, seed, as.character(strsplit(grid_crs$input,':')[[1]][2]), y_col = y_col, x_col = x_col)
@@ -25,11 +27,13 @@ floppydisk2cube <- function(data_in,
   # aggregate occurrences and keep min of uncertainty column
 
   occ_agg <- as.data.frame(occ_dat %>% group_by(across(all_of(c(aggregate_columns, "eeacellcode")))) %>%
-                                  summarise(across('coordinateUncertaintyInMeters', min), count=n(), .groups="drop")
+                                  summarise(across('coordinateUncertainty', min), count=n(), .groups="drop")
                             )
-  occ_agg$coordinateUncertaintyInMeters <- as.integer(occ_agg$coordinateUncertaintyInMeters)
+  occ_agg$coordinateUncertainty <- as.integer(occ_agg$coordinateUncertainty)
   
   colnames(occ_agg)[which(colnames(occ_agg) == "n")] <- "count"
+  
+ 
 
   return(occ_agg)
 }
@@ -61,7 +65,7 @@ check_req_fields <- function(data, req_fields=c("decimalLatitude", "decimalLongi
 }
 
 # load preset grids
-grid_10km <- st_read("eea_grid/Grid_ETRS89-LAEA_10K.shp")
+#grid_10km <- st_read("eea_grid/Grid_ETRS89-LAEA_10K.shp")
 grid_100km <- st_read("eea_grid/Grid_ETRS89-LAEA_100K.shp")
 
 
@@ -89,7 +93,7 @@ merge_cubes <- function(new_cube, processed_cube, map_df, col_min) {
   #make sure coordinate uncertainty column is called like this to feed into dplyr
   processed_cube <- processed_cube %>% 
     rename_at(col_min, ~'coordinateUncertaintyInMeters')
-  merged_cube <- merged_cube %>% 
+  new_cube <- new_cube %>% 
     rename_at(col_min, ~'coordinateUncertaintyInMeters')
   
   
@@ -134,23 +138,18 @@ get_uncertainty_time_period <- function(time_periods, value, default_na){
   
 }
 
-assess_uncertainty <- function(data, coord_uncertainty_col = "coordinateUncertaintyInMeters", default_na = 1000, special_rule=NA) {
+assess_uncertainty <- function(data, default_na = 1000, special_rule=NA) {
   if (is.na(special_rule) ){
     
-      if (coord_uncertainty_col %in% names(data)) {
-        
-        data <- data %>% mutate(coordinateUncertaintyInMeters = ifelse(is.na(coordinateUncertaintyInMeters), 
-                                                                       default_na, coordinateUncertaintyInMeters))
-      } else {
-        data$coordinateUncertaintyInMeters <- default_na
-      }
-    
+     data <- data %>% mutate(coordinateUncertainty = ifelse(is.na(coordinateUncertainty), 
+                                                                       default_na, coordinateUncertainty))
+      
   } else {
     
     time_periods <- strsplit(special_rule, ';')
     
-    data <- data %>% mutate(coordinateUncertaintyInMeters = ifelse(is.na(coordinateUncertaintyInMeters), 
-                                                                   mapply(function(y) get_uncertainty_time_period(time_periods, y, default_na), year), coordinateUncertaintyInMeters))
+    data <- data %>% mutate(coordinateUncertainty = ifelse(is.na(coordinateUncertainty), 
+                                                                   mapply(function(y) get_uncertainty_time_period(time_periods, y, default_na), year), coordinateUncertainty))
     
   }
   
@@ -178,7 +177,7 @@ assign_occurrence_within_uncertainty_circle <- function(geodata_df, seed, data_p
   geodata_df@data <-
     geodata_df@data %>%
     mutate(random_r = sqrt(runif(
-      nrow_geodata_df, 0, 1)) * coordinateUncertaintyInMeters)
+      nrow_geodata_df, 0, 1)) * coordinateUncertainty)
   geodata_df@data <-
     geodata_df@data %>%
     mutate(x = geodata_df@coords[, "x"],
