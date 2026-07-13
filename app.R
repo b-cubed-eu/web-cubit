@@ -16,13 +16,14 @@ ui <- page_sidebar(
   useShinyjs(),
   titlePanel(
     title = "Cubit"
-    # tags$div(
-    #   tags$img(src = "Cubit-logo.png", height = "40px", style = "margin-right:10px;"),
-    # )
+   
   ),
 
   # Sidebar panel for inputs ----
   sidebar = sidebar(
+    tags$div(
+      tags$img(src = "Cubit-logo.png", height="100%", width="100%", style = "margin-right:10px;")
+    ),
     # Input: Select a file ----
     fileInput(
       "file1",
@@ -110,6 +111,9 @@ ui <- page_sidebar(
         accept = c(".csv", ".tsv")
       ),
       
+      
+      tags$hr(),
+      uiOutput("premadecube_config_ui"),
       tags$hr(),
       
       uiOutput("mapping_builder_ui"),
@@ -226,9 +230,6 @@ server <- function(input, output) {
       grid_crs <- st_crs(4326) # default to WGS84
     }
     
-
-    # join user-defined columns for aggregating with the necessary eeacellcode that will be defined from the coordinates
-    aggregate_cols <- c("eeacellcode", input$aggregate_cols)
     
     # every occurrence must have corresponding coordinates
     df_filt <- filter_missing_coords(retrieve_file(), y_col = input$y_col, x_col = input$x_col)
@@ -258,7 +259,7 @@ server <- function(input, output) {
     # main function for cubing data
     
     floppydatacube <- floppydisk2cube(data_in = corrected_uncertainty,
-                                     aggregate_columns = aggregate_cols, 
+                                     aggregate_columns = input$aggregate_cols, 
                                      target_grid = target_grid,
                                      grid_crs = grid_crs,
                                      seed=input$seed,
@@ -267,8 +268,7 @@ server <- function(input, output) {
     
     floppydatacube <- floppydatacube %>% rename_at('coordinateUncertainty', ~input$coordinate_uncertainty_col)
     
-    #Will this cause issues in the server? Do I really need this to be global?
-    data_cube <<- floppydatacube
+    data_cube <- floppydatacube
 
     return(floppydatacube)
   })
@@ -414,6 +414,79 @@ server <- function(input, output) {
     return(df)
   })
   
+  #this will create the column mapping ui for the cubes
+  #corresponding to coordinate uncertainty and occurrence counts 
+  #cause they must be processed differently
+  #it will try to get the columns by itself based on names
+  output$premadecube_config_ui <- renderUI({
+    req(data_into_cube())
+    
+    # get columns from uploaded file
+    cols <- names(data_into_cube())
+    cols2 <- names(retrieve_new_cube_file())
+    
+    fluidRow(
+      column(6, 
+             tagList(
+               
+               selectInput(
+                 "cubeA_uncertainty_col",
+                 "Coordinate uncertainty",
+                 choices = c(cols),
+                 multiple = FALSE,
+                 selected = {
+                   hit <- grep("coordinateUncertainty", cols, value = TRUE)[1]
+                   if (is.na(hit)) NULL else hit
+                 }
+               ),
+               
+               selectInput(
+                 "cubeA_count_col",
+                 "Number of occurrences",
+                 choices =c("None" = "", cols),
+                 multiple = FALSE,
+                 selected = {
+                   hit <- grep("count$", cols, value = TRUE)[1]
+                   if (is.na(hit)) NULL else hit
+                 }
+               ),
+               
+               
+             )
+      ),
+      column(6,
+             selectInput(
+               "cubeB_uncertainty_col",
+               "Coordinate uncertainty",
+               choices =c("None" = "", cols2),
+               multiple = FALSE,
+               selected = {
+                 hit <- grep("coordinateUncertainty", cols2, value = TRUE)[1]
+                 if (is.na(hit)) NULL else hit
+               }
+             ),
+             
+             selectInput(
+               "cubeB_count_col",
+               "Number of occurrences",
+               choices =c("None" = "", cols2),
+               multiple = FALSE,
+               selected = {
+                 hit <- grep("count$", cols2, value = TRUE)[1]
+                 if (is.na(hit)) NULL else hit
+               }
+             )
+             
+             
+             
+             
+      )
+    )
+    
+    
+  })
+  
+  
   mapping_counter <- reactiveVal(0)
   
   observeEvent(input$add_mapping, {
@@ -468,6 +541,16 @@ server <- function(input, output) {
     })
   })
   
+  #remove all mapping when a new cube file is selected
+  remove_mapping <- function(){
+    
+    lapply(seq_len(mapping_counter()), function(i){
+      removeUI(selector = paste0("#map_row_", i))
+    })
+    
+    mapping_counter(0)
+  }
+  
   output$mapping_builder_ui <- renderUI({
     
     tagList(
@@ -504,19 +587,31 @@ server <- function(input, output) {
     req(data_into_cube(), retrieve_new_cube_file())
     
     map <- merge_mapping()
-    
+    print(map)
     validate(
       need(nrow(map) > 0, "Please define at least one mapping")
     )
     
+    #make sure coordinate uncertainty column is called like this to feed into dplyr in merge function
+    cubeA2merge <- data_into_cube() %>% 
+      rename("coordinateUncertainty" = input$coordinate_uncertainty_col)
+    cubeA2merge_stay <<- cubeA2merge
+    
+    cubeB2merge <- retrieve_new_cube_file() %>% 
+      rename("coordinateUncertainty" = input$cubeB_uncertainty_col, "count" = input$cubeB_count_col)
+    cubeB2merge_stay <<- cubeB2merge
    
-    merge_cubes(
-      retrieve_new_cube_file(),
-      data_into_cube(),
-      map,
-      input$coordinate_uncertainty_col
-      
+    merged_cube <- merge_cubes(
+      cubeA2merge,
+      cubeB2merge,
+      map
     )
+    
+    merged_cube <- merged_cube %>% 
+      rename(!!input$coordinate_uncertainty_col := "coordinateUncertainty")
+    
+    return(merged_cube)
+    
   })
   
   output$merged <- renderTable({

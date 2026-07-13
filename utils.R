@@ -5,35 +5,45 @@ floppydisk2cube <- function(data_in,
                             grid_crs,
                             seed, y_col='decimalLatitude', x_col='decimalLongitude') {
   
+  #ensure that coordinate columns are numeric
   data_in[[y_col]] <- as.numeric(data_in[[y_col]])
   data_in[[x_col]] <- as.numeric(data_in[[x_col]])
   
   #new coordinates will be created based on randomization found in Oldoni et al.2020
-  data_2 <- assign_occurrence_within_uncertainty_circle(data_in, seed, as.character(strsplit(grid_crs$input,':')[[1]][2]), y_col = y_col, x_col = x_col)
+  data_2 <- assign_occurrence_within_uncertainty_circle(
+    data_in, 
+    seed, 
+    #get the ESPG code from grid_crs
+    as.character(strsplit(grid_crs$input,':')[[1]][2]),
+    y_col = y_col,
+    x_col = x_col)
+  
   # convert data to a vector layer
   occ <- st_as_sf(data_2, coords = c("x", "y"), crs = grid_crs)
 
   # project vector layer to EEA grid, in this example EPGS:3035
   occ_proj <- st_transform(occ, crs(target_grid))
-
-  # intersect spatial occurrences with target grid
-  occ_eea <- st_intersection(occ_proj, target_grid)
-
-  occ_dat <- as.data.frame(occ_eea)
   
-  # create eeacellcode column in data frame
-  names(occ_dat)[grep("CellCode", names(occ_dat))] <- "eeacellcode"
+  #s2 takes too long for even just a few occurrences when the data is in degrees
+  sf_use_s2(FALSE)
+  
+  # intersect spatial occurrences with target grid
+  occ_dat <- st_intersection(occ_proj, target_grid)
 
-  # aggregate occurrences and keep min of uncertainty column
+  occ_dat <- as.data.frame(occ_dat)
+  
+ 
+  # aggregate occurrences over user-specified columns AND CellCode
+  # keep min of uncertainty column and create column with number of occurrences
 
-  occ_agg <- as.data.frame(occ_dat %>% group_by(across(all_of(c(aggregate_columns, "eeacellcode")))) %>%
+  occ_agg <- as.data.frame(occ_dat %>% group_by(across(all_of(c(aggregate_columns, "CellCode")))) %>%
                                   summarise(across('coordinateUncertainty', min), count=n(), .groups="drop")
                             )
+  
   occ_agg$coordinateUncertainty <- as.integer(occ_agg$coordinateUncertainty)
   
   colnames(occ_agg)[which(colnames(occ_agg) == "n")] <- "count"
   
- 
 
   return(occ_agg)
 }
@@ -42,6 +52,8 @@ floppydisk2cube <- function(data_in,
 filter_missing_coords <- function(data, y_col = "decimalLatitude", x_col = "decimalLongitude") {
   # changed to user-defined columns of coordinates
   data_filt <- data[complete.cases(data[, c(y_col, x_col)]), ]
+  #complete cases doesn't recognize certain cases in which there is nothing in these columns
+  data_filt <- data_filt[which(data_filt[y_col]!="" | data_filt[x_col]!="" ),]
 
   return(data_filt)
 }
@@ -49,7 +61,7 @@ filter_missing_coords <- function(data, y_col = "decimalLatitude", x_col = "deci
 "%nin%" <- Negate("%in%")
 
 
-
+#no longer necessary
 check_req_fields <- function(data, req_fields=c("decimalLatitude", "decimalLongitude")) {
   # checks for required fields
   #req_fields argument expects a character vector
@@ -83,24 +95,22 @@ get_corresponding_preset_grid <- function(km) {
   }
 }
 
-merge_cubes <- function(new_cube, processed_cube, map_df, col_min) {
+get_preset_grid_crs <- function(grid){
+  espg_code <- switch(grid, '100km'=4326, '1km'=4326, '10km'=4326)
+  return(espg_code)
+}
+
+merge_cubes <- function(processed_cube, new_cube, map_df) {
   # merge processed cube with a new one e.g. downloaded from GBIF
-  
+  print('merging cubes!')
   names(new_cube)[match(map_df$b, names(new_cube))] <- map_df$a
   
-  agg_cols <- map_df$a[map_df$a != col_min]
-  
-  #make sure coordinate uncertainty column is called like this to feed into dplyr
-  processed_cube <- processed_cube %>% 
-    rename_at(col_min, ~'coordinateUncertaintyInMeters')
-  new_cube <- new_cube %>% 
-    rename_at(col_min, ~'coordinateUncertaintyInMeters')
-  
+  agg_cols <- map_df$a
   
   merged_cube <- bind_rows(processed_cube, new_cube) %>% group_by(across(all_of(agg_cols))) %>%
     summarise(
-      coordinateUncertaintyInMeters =
-        min(coordinateUncertaintyInMeters, na.rm = TRUE),
+      coordinateUncertainty =
+        min(coordinateUncertainty, na.rm = TRUE),
       
       count =
         sum(count, na.rm = TRUE),
@@ -108,18 +118,16 @@ merge_cubes <- function(new_cube, processed_cube, map_df, col_min) {
       .groups = "drop"
     )
   
-  merged_cube <- merged_cube %>% 
-    rename_at('coordinateUncertaintyInMeters', ~col_min)
   
   # delete unnecessary count columns
-  merged_cube <- merged_cube %>% select(c(map_df$a, count))
+  merged_cube <- merged_cube %>% select(c(map_df$a, coordinateUncertainty, count))
   
-
   return(merged_cube)
 }
 
 get_uncertainty_time_period <- function(time_periods, value, default_na){
-  
+  #read the configuration of period-specific coordinate uncertainty 
+  #in the following format e.g. 2000-2010, 500; 2011-2020, 200; 2021-2026, 50
   for (period in time_periods[[1]]){
     
     years <- str_trim(strsplit(period, ',')[[1]][1])
@@ -138,12 +146,17 @@ get_uncertainty_time_period <- function(time_periods, value, default_na){
   
 }
 
-assess_uncertainty <- function(data, default_na = 1000, special_rule=NA) {
+assess_uncertainty <- function(data, coord_uncertainty_col = "coordinateUncertainty", default_na = 1000, special_rule=NA) {
   if (is.na(special_rule) ){
     
-     data <- data %>% mutate(coordinateUncertainty = ifelse(is.na(coordinateUncertainty), 
+      if (coord_uncertainty_col %in% names(data)) {
+        
+        data <- data %>% mutate(coordinateUncertainty = ifelse(is.na(coordinateUncertainty), 
                                                                        default_na, coordinateUncertainty))
-      
+      } else {
+        data$coordinateUncertainty <- default_na
+      }
+    
   } else {
     
     time_periods <- strsplit(special_rule, ';')
