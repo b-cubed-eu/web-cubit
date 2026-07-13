@@ -138,8 +138,6 @@ server <- function(input, output) {
     
     tagList(
     
-      # Input: Checkbox if file has header ----
-      checkboxInput("header", "Header", TRUE),
       
       # Input: Select separator ----
       radioButtons(
@@ -179,7 +177,7 @@ server <- function(input, output) {
     
     df <- read.csv(
       input$file1$datapath,
-      header = input$header,
+      header = T, #file must always have an header
       sep = input$sep,
       quote = input$quote
     )
@@ -235,7 +233,12 @@ server <- function(input, output) {
     # every occurrence must have corresponding coordinates
     df_filt <- filter_missing_coords(retrieve_file(), y_col = input$y_col, x_col = input$x_col)
     
-    df_filt <- df_filt %>% rename_at(input$coordinate_uncertainty_col, ~'coordinateUncertainty')
+    if(input$coordinate_uncertainty_col %in% names(df_filt)){
+    
+      df_filt <- df_filt %>% rename_at(input$coordinate_uncertainty_col, ~'coordinateUncertainty')
+    } else{
+      df_filt[ , 'coordinateUncertainty'] <- NA
+    }
     
     if (isFALSE(input$use_custom_uncertainty)){
       
