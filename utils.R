@@ -77,8 +77,9 @@ check_req_fields <- function(data, req_fields=c("decimalLatitude", "decimalLongi
 }
 
 # load preset grids
-#grid_10km <- st_read("eea_grid/Grid_ETRS89-LAEA_10K.shp")
+grid_10km <- st_read("eea_grid/Grid_ETRS89-LAEA_10K.shp")
 grid_100km <- st_read("eea_grid/Grid_ETRS89-LAEA_100K.shp")
+#grid_1km <- st_read("eea_grid/EEA-1km-GRID-EU-2013.gpkg")
 
 
 get_corresponding_preset_grid <- function(km) {

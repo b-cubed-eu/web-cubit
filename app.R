@@ -49,8 +49,8 @@ ui <- page_sidebar(
       selectInput("preset_choice", "Select a preset grid:",
         choices = c(
           "EEA 100km" = "100km",
-          "EEA 10km" = "10km",
-          "EEA 1km" = "1km"
+          "EEA 10km" = "10km"
+         # "EEA 1km" = "1km" #too slow right now so it is not yet implemented
         )
       )
     ),
