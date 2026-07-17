@@ -213,7 +213,7 @@ The resulting cube combines observations from both cubes into a single standardi
 - Use the local version when processing datasets containing millions of records.
 - Preserve the original raw dataset and treat Cubit outputs as derived products.
 
-# Further applications
+# Downstream applications
 
 Occurrence cubes generated with Cubit can be used for
 
