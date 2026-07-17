@@ -98,7 +98,7 @@ If coordinate uncertainty is missing for some records, Cubit allows assigning de
 Different defaults may be defined for different time periods when appropriate.
 
 This step ensures that all records can be allocated to grid cells
-using the random allocation algorithm described in [Oldoni et al. 20](https://www.biorxiv.org/content/10.1101/2020.03.23.983601v1.full).
+using the random allocation algorithm described in [Oldoni et al. 2020](https://www.biorxiv.org/content/10.1101/2020.03.23.983601v1.full).
 
 ## Step 4 — Set the random seed
 
