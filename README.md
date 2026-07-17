@@ -175,7 +175,7 @@ among other variables.
 
 We upload the file, select **comma** as separator, select **No quote** (as the file does not contain quoted strings) and click **Load file**.
 
-![Loading File](img/Input_upload.gif)
+![Loading File](img/File_upload.gif)
 
 ## Configure and create the cube
 
