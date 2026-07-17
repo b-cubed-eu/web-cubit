@@ -175,7 +175,7 @@ among other variables.
 
 We upload the file, select **comma** as separator, select **No quote** (as the file does not contain quoted strings) and click **Load file**.
 
-![Loading File](img/CubitInput_upload.gif)
+![Loading File](img/Input_upload.gif)
 
 ## Configure and create the cube
 
@@ -189,7 +189,7 @@ Now we want to create a cube from this data that contains the following informat
 Grid cell will be based on the grid and coordinates so it does not need to be present in the original dataset.
 The other three variables are the ones the data will be aggregated by.
 
-![Configuring Cube](img/CubitCube_configuration.gif)
+![Configuring Cube](img/Cube_configuration.gif)
 
 ## Merge with GBIF
 
@@ -201,7 +201,7 @@ If there's additional data in one of the cubes that we don't want to keep in the
 Here, we want the final cube to have all the columns of both cubes (speciesKey, countryCode, year, CellCode, coordinateUncertaintyInMeters, count).
 After configuring the mapping, we execute the merge.
 
-![Merging Cubes](img/CubitCube_merging.gif)
+![Merging Cubes](img/Cube_merging.gif)
 
 The resulting cube combines observations from both cubes into a single standardized dataset that can be directly used by downstream B-Cubed workflows.
 
