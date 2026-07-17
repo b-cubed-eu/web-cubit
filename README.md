@@ -4,7 +4,7 @@ Cubit is an interactive workflow for generating and manipulating **species occur
 
 Occurrence cubes are analysis-ready biodiversity datasets in which occurrence records are aggregated along one or more dimensions, typically space, time and taxonomy. Compared to raw occurrence records, cubes are considerably more lightweight, easier to manipulate and directly compatible with the workflows developed within the B-Cubed project.
 
-Cubit has two principal functions:
+Cubit has two main functions:
 
 - create occurrence cubes from user datasets;
 - merge occurrence cubes originating from different sources (e.g. GBIF and local datasets).
