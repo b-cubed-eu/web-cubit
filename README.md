@@ -98,7 +98,7 @@ If coordinate uncertainty is missing for some records, Cubit allows assigning de
 Different defaults may be defined for different time periods when appropriate.
 
 This step ensures that all records can be allocated to grid cells
-using the random allocation algorithm described in [Oldoni et al. 2020](https://www.biorxiv.org/content/10.1101/2020.03.23.983601v1.full).
+using the random allocation algorithm described in [Oldoni et al. (2020)](https://www.biorxiv.org/content/10.1101/2020.03.23.983601v1.full).
 
 ## Step 4 — Set the random seed
 
@@ -173,7 +173,7 @@ among other variables.
 
 ## Upload
 
-We upload the file, select **comma** as separator, select **No quote** (as the file does not contain quoted strings) and click **Load file**.
+We upload the file, select **comma** as separator, select **No quote** (this file does not contain quoted strings) and click **Load file**.
 
 ![Loading File](img/File_upload.gif)
 
@@ -191,9 +191,12 @@ The other three variables are the ones the data will be aggregated by.
 
 ![Configuring Cube](img/Cube_configuration.gif)
 
-## Merge with GBIF
+## Merge with another cube
 
-Finally, we want to merge the cube we just created with another cube. We upload the second cube into the **Merge Cubes** panel.
+Finally, we want to merge the cube we just created with another cube. The latter must have been created using the same grid as the former and, consequently, 
+must have the same cell code format 
+
+We upload the second cube into the **Merge Cubes** panel.
 We then map equivalent variables (in this case they have the same column names)
 Coordinate uncertainty and occurrece counts must be mapped as well but are treated differently, so they must be mapped in the corresponding fields.
 Below we can map the rest of the columns of the two cubes that we want the merged cube to have.
